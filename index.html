@@ -1,528 +1,75 @@
+<!-- Save the following into two separate files:
+1) index.html (public ticket page)
+2) concertedit.html (admin editor)
+Both share config via localStorage key `choir_config_override`. -->
+
+
+<!-- FILE: index.html -->
 <!doctype html>
 <html lang="en" class="scroll-smooth">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Laudem Dei Chamber Choir — Tickets (Mobile)</title>
-  <meta name="description" content="Buy tickets for Laudem Dei Chamber Choir. Mobile-friendly single-file page with mock checkout." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <style>
-    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(12px); }
-    .ticket-card{ transition: box-shadow .2s ease, transform .2s ease; }
-    .ticket-card:active{ transform: translateY(1px); }
-    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Laudem Dei Chamber Choir — Tickets</title>
+<meta name="description" content="Buy tickets for Laudem Dei Chamber Choir. Mobile-friendly single-file page with mock checkout." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+.glass { background: rgba(255,255,255,.72); backdrop-filter: blur(12px); }
+.ticket-card{ transition: box-shadow .2s ease, transform .2s ease; }
+.ticket-card:active{ transform: translateY(1px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.form-note { font-size: 11px; color: #64748b; }
+</style>
 </head>
 <body class="bg-white text-slate-800">
-  <script>
-    const CONFIG = {
-      orgName: "Laudem Dei Chamber Choir",
-      logoUrl: "/mnt/data/462608521_122195237900072102_5674801301473007082_n.jpg", // replace with your hosted URL when deploying
-      event: {
-        id: "choir-2025-spring-concert",
-        title: "Spring Serenade Concert",
-        subtitle: "An evening of choral gems",
-        dateISO: "2025-10-11T18:30:00+02:00",
-        doorsISO: "2025-10-11T18:00:00+02:00",
-        venue: "St. Stithians Chapel",
-        address: "40 Peter Place, Lyme Park, Sandton, 2191",
-        mapLink: "https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
-        heroImg: "https://placehold.co/1200x800/png?text=Choir+Concert",
-        heroAlt: "Choir on stage"
-      },
-      tickets: [
-        { code: "GEN",  name: "General Admission",    price: 20000,  desc: "Unreserved seating",          limit: 10 },
-        { code: "STUD", name: "Student / Pensioner", price: 12000,  desc: "ID required at door",        limit: 10 },
-        { code: "VIP",  name: "Patron (Front Rows)", price: 35000,  desc: "Priority seating + program", limit: 10 }
-      ],
-      simulateCheckout: true,
-      currency: 'ZAR'
-    };
-  </script>
+<script>
+// ---- Defaults (overridden by localStorage) ----
+const DEFAULT_CONFIG = {
+orgName: "Laudem Dei Chamber Choir",
+logoUrl: "/mnt/data/462608521_122195237900072102_5674801301473007082_n.jpg",
+event: {
+id: "choir-2025-spring-concert",
+title: "Spring Serenade Concert",
+subtitle: "An evening of choral gems",
+dateISO: "2025-10-11T18:30:00+02:00",
+doorsISO: "2025-10-11T18:00:00+02:00",
+venue: "St. Stithians Chapel",
+address: "40 Peter Place, Lyme Park, Sandton, 2191",
+mapLink: "https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
+heroImg: "https://placehold.co/1200x800/png?text=Choir+Concert",
+heroAlt: "Choir on stage"
+},
+tickets: [
+{ code: "GEN", name: "General Admission", price: 20000, desc: "Unreserved seating", limit: 10 },
+{ code: "STUD", name: "Student / Pensioner", price: 12000, desc: "ID required at door", limit: 10 },
+{ code: "VIP", name: "Patron (Front Rows)", price: 35000, desc: "Priority seating + program", limit: 10 }
+],
+simulateCheckout: true,
+currency: 'ZAR'
+};
 
-  <!-- Header -->
-  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
-    <nav class="relative max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img id="brandLogo" alt="Laudem Dei logo" class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-contain bg-white ring-1 ring-slate-200 p-1" />
-        <div class="font-semibold text-sm sm:text-base">Laudem Dei Chamber Choir</div>
-      </div>
-      <a href="#tickets" class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-sky-600 text-white text-sm sm:text-base hover:bg-sky-700">Buy</a>
-      <!-- Admin edit button (opens password modal) -->
-      <div class="absolute right-3 top-3 md:right-6 md:top-4">
-        <button id="adminBtn" class="px-3 py-2 rounded-lg border border-slate-300 bg-white/80 backdrop-blur text-slate-700 text-xs md:text-sm hover:bg-white">Edit concert</button>
-      </div>
-    </nav>
-  </header>
 
-  <!-- Hero (mobile-first layout) -->
-  <section class="bg-slate-50">
-    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-10 grid md:grid-cols-2 gap-6 items-center">
-      <div>
-        <h1 class="text-2xl sm:text-4xl font-extrabold leading-tight">Spring Serenade Concert</h1>
-        <p class="mt-2 text-slate-600 text-sm sm:text-base">An evening of choral gems</p>
-        <ul class="mt-4 text-slate-700 text-sm space-y-1">
-          <li>📍 <a id="venueLink" href="#" class="underline decoration-sky-400 underline-offset-4 hover:decoration-sky-600">St. Stithians Chapel</a></li>
-          <li>🗓️ <span id="dateHuman"></span> • Doors <span id="doorsHuman"></span></li>
-        </ul>
-      </div>
-      <img id="heroImg" alt="" class="rounded-2xl shadow-xl ring-1 ring-slate-200 w-full h-auto object-cover" />
-    </div>
-  </section>
+// Load persisted config, with merging
+const CONFIG = (() => {
+try {
+const s = localStorage.getItem('choir_config_override');
+if (!s) return structuredClone(DEFAULT_CONFIG);
+const o = JSON.parse(s);
+const base = structuredClone(DEFAULT_CONFIG);
+Object.assign(base, o || {});
+base.event = Object.assign({}, DEFAULT_CONFIG.event, o?.event || {});
+base.tickets = Array.isArray(o?.tickets) ? o.tickets : DEFAULT_CONFIG.tickets;
+return base;
+} catch { return structuredClone(DEFAULT_CONFIG); }
+})();
+</script>
 
-  <!-- Tickets -->
-  <section id="tickets" class="py-8 sm:py-12">
-    <div class="max-w-5xl mx-auto px-4">
-      <h2 class="text-xl sm:text-3xl font-bold">Choose your tickets</h2>
-      <p class="text-slate-600 mt-2 text-sm sm:text-base">Secure payments in ZAR. (Simulated here for testing.)</p>
 
-      <div id="ticketGrid" class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
-
-      <!-- Desktop order card -->
-      <div class="hidden md:grid mt-8 grid-cols-[1fr,420px] gap-6 items-start">
-        <div class="text-sm text-slate-600">
-          <h3 class="font-semibold text-slate-800 mb-2">About this concert</h3>
-          <p>Experience a night of luminous choral music featuring works by South African and international composers.</p>
-        </div>
-        <aside class="glass rounded-2xl p-5 sm:p-6 border border-slate-200 sticky top-20">
-          <h3 class="text-lg sm:text-xl font-semibold">Your order</h3>
-          <div id="orderList" class="mt-3 text-sm text-slate-700 space-y-2">
-            <p class="text-slate-500">No tickets selected yet.</p>
-          </div>
-          <hr class="my-3" />
-          <div class="flex items-center justify-between text-base sm:text-lg font-semibold">
-            <span>Total</span>
-            <span id="total">R0</span>
-          </div>
-          <button id="payBtnDesktop" class="mt-4 w-full px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Pay</button>
-        </aside>
-      </div>
-    </div>
-  </section>
-
-  <!-- Mobile sticky checkout bar -->
-  <div id="mobileBar" class="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 border-t border-slate-200 safe-bottom">
-    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-      <div class="text-sm">
-        <div class="text-slate-500">Total</div>
-        <div id="totalMobile" class="text-lg font-bold">R0</div>
-      </div>
-      <button id="payBtnMobile" class="flex-1 px-4 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Pay</button>
-    </div>
-  </div>
-
-  <!-- Mock Checkout Modal -->
-  <div id="mockModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/40" onclick="closeMockCheckout()"></div>
-    <div class="relative max-w-lg mx-auto sm:mt-16 mt-0 sm:rounded-2xl sm:p-6 sm:bg-white sm:shadow-xl sm:border sm:border-slate-200 h-full sm:h-auto overflow-y-auto">
-      <div class="sm:bg-transparent bg-white sm:rounded-none rounded-b-none">
-        <div class="flex items-center justify-between p-4 sm:p-0 border-b sm:border-0">
-          <h3 class="text-lg sm:text-xl font-semibold">Checkout (Test)</h3>
-          <button class="text-slate-500 hover:text-slate-700" onclick="closeMockCheckout()">✕</button>
-        </div>
-        <form id="mockForm" class="p-4 sm:p-0 grid gap-3">
-          <div>
-            <label class="text-sm text-slate-600">Buyer name</label>
-            <input id="buyerName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Thandi Ndlovu" required />
-          </div>
-          <div>
-            <label class="text-sm text-slate-600">Email for e‑tickets</label>
-            <input id="buyerEmail" type="email" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="you@example.com" required />
-          </div>
-          <div>
-            <label class="text-sm text-slate-600">Cell number <span class="text-slate-400">(South Africa only)</span></label>
-            <input id="buyerCell" inputmode="tel" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="(+27) 82 123 4567" required />
-            <p class="text-[11px] text-slate-500 mt-1">SA mobiles: must start with 06/07/08. Auto‑formats on blur.</p>
-          </div>
-          <div id="mockSummary" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
-          <div class="mt-2 flex items-center justify-between sticky bottom-0 bg-white/95 py-3 sm:py-0 sm:bg-transparent">
-            <button type="button" class="px-4 py-2 rounded-xl border" onclick="closeMockCheckout()">Back</button>
-            <button id="mockPayBtn" type="submit" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Confirm Payment</button>
-          </div>
-        </form>
-        <div id="mockSuccess" class="hidden p-4 sm:p-0">
-          <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-            <p class="font-semibold">Payment Successful (Simulated)</p>
-            <p class="text-sm">Order <span id="mockOrder"></span> — Your tickets are below with QR codes.</p>
-          </div>
-          <div id="mockTickets" class="mt-3 text-sm"></div>
-          <div class="h-3"></div>
-          <div class="flex flex-col sm:flex-row gap-2 justify-end">
-            <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-700 text-white font-semibold hover:opacity-90">Download PNG Tickets</button>
-            <button id="pdfBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90">Download PDF Tickets</button>
-            <button id="shareAllBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Share all via WhatsApp</button>
-            <button class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700" onclick="closeMockCheckout()">Close</button>
-          </div>
-          <div class="h-4"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Admin Password / Edit Modal -->
-  <div id="adminModal" class="hidden fixed inset-0 z-50">
-    <div class="absolute inset-0 bg-black/40" onclick="closeAdminModal()"></div>
-    <div class="relative max-w-2xl mx-auto mt-16 bg-white rounded-2xl p-6 shadow-xl border border-slate-200">
-      <div class="flex items-center justify-between">
-        <h3 class="text-xl font-semibold">Edit Concert Info</h3>
-        <button class="text-slate-500 hover:text-slate-700" onclick="closeAdminModal()">✕</button>
-      </div>
-      <p class="text-xs text-slate-500 mt-1">Client‑side password is for convenience only and not secure for sensitive data.</p>
-
-      <div id="adminAuth" class="mt-4">
-        <label class="text-sm text-slate-600">Enter password</label>
-        <input id="adminPwd" type="password" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Password" />
-        <div class="mt-3 flex justify-end">
-          <button class="px-4 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700" onclick="handleAdminAuth()">Unlock</button>
-        </div>
-      </div>
-
-      <form id="adminForm" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm">Organisation</label>
-          <input id="af_org" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label class="text-sm">Logo URL</label>
-          <input id="af_logo" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-sm">Title</label>
-          <input id="af_title" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-sm">Subtitle</label>
-          <input id="af_subtitle" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label class="text-sm">Event date/time (ISO)</label>
-          <input id="af_date" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:30:00+02:00" />
-        </div>
-        <div>
-          <label class="text-sm">Doors time (ISO)</label>
-          <input id="af_doors" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:00:00+02:00" />
-        </div>
-        <div>
-          <label class="text-sm">Venue</label>
-          <input id="af_venue" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label class="text-sm">Address</label>
-          <input id="af_address" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-sm">Map link</label>
-          <input id="af_map" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div class="md:col-span-2">
-          <label class="text-sm">Hero image URL</label>
-          <input id="af_hero" class="mt-1 w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div class="md:col-span-2 mt-2 flex items-center justify-between">
-          <label class="flex items-center gap-2 text-sm text-slate-600"><input id="af_persist" type="checkbox" class="rounded"/> Save changes in this browser</label>
-          <div class="flex gap-2">
-            <button type="button" class="px-4 py-2 rounded-lg border" onclick="closeAdminModal()">Cancel</button>
-            <button type="submit" class="px-4 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">Save</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Error banner -->
-  <div id="errBanner" class="hidden fixed bottom-3 right-3 z-50 max-w-md bg-red-50 text-red-900 border border-red-200 rounded-xl shadow p-3 text-sm"></div>
-
-  <script>
-    // ===== Utilities =====
-    const ZAR = new Intl.NumberFormat('en-ZA', { style:'currency', currency:'ZAR', maximumFractionDigits:0 });
-    const fmt = (cents) => ZAR.format(cents/100);
-    const qs = (s,r) => (r||document).querySelector(s);
-    const qsa = (s,r) => Array.from((r||document).querySelectorAll(s));
-    const toHuman = (iso) => new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
-
-    // SA-only mobile auto-format on blur
-    function saDigits(s){ return (s||'').replace(/[^0-9]+/g,''); }
-    function saNormalizeNSN(raw){
-      const d = saDigits(raw);
-      if (!d) return null;
-      let nsn = d;
-      if (d.startsWith('27')) nsn = d.slice(2);
-      else if (d.startsWith('0')) nsn = d.slice(1);
-      if (nsn.length !== 9) return null;
-      if (!/[678]/.test(nsn[0])) return null;
-      return nsn;
-    }
-    function saFormatInternational(raw){
-      const nsn = saNormalizeNSN(raw);
-      if (!nsn) return null;
-      return '(+27) ' + nsn.slice(0,2) + ' ' + nsn.slice(2,5) + ' ' + nsn.slice(5);
-    }
-
-    // WhatsApp share helpers
-    function saNumberForWhatsApp(raw){
-      const d = (raw || '').replace(/[^0-9]+/g, '');
-      let nsn = d;
-      if (d.startsWith('27')) nsn = d.slice(2);
-      else if (d.startsWith('0')) nsn = d.slice(1);
-      if (nsn.length !== 9 || !/[678]/.test(nsn[0])) return null; // SA mobile only
-      return '27' + nsn; // CC+number without '+'
-    }
-    async function shareTicketViaWhatsApp(rowEl, buyerCell, orderId, ticketId){
-      try {
-        const canvas = await html2canvas(rowEl, { backgroundColor:'#ffffff', scale:2, useCORS:true, allowTaint:false });
-        const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
-        if (!blob) throw new Error('Could not create image');
-        const file = new File([blob], `${CONFIG.event.id}_${ticketId}.png`, { type: 'image/png' });
-        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId} • Ticket ${ticketId}`;
-        if (navigator.canShare && navigator.canShare({ files:[file] })) {
-          await navigator.share({ files:[file], title: `${CONFIG.event.title} ticket`, text });
-          return;
-        }
-        const wa = saNumberForWhatsApp(buyerCell);
-        if (!wa) { alert('Invalid SA mobile for WhatsApp'); return; }
-        const fallbackMsg = `${text}\n(Reply here and I will send the image.)`;
-        const encoded = encodeURIComponent(fallbackMsg);
-        window.open(`https://wa.me/${wa}?text=${encoded}`, '_blank');
-      } catch (e) {
-        console.error(e);
-        alert('Sharing failed. Try downloading the PNG and sending it from WhatsApp.');
-      }
-    }
-
-    // Share-all helper (uses Web Share API when available)
-    async function shareAllTickets(buyerCell, orderId){
-      try {
-        const rows = qsa('#mockTickets > div');
-        if (!rows.length) { alert('No tickets to share.'); return; }
-        const files = [];
-        let i = 0;
-        for (const row of rows) {
-          const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true, allowTaint:false });
-          const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
-          if (!blob) continue;
-          const tid = row.dataset.ticketId || `ticket_${++i}`;
-          files.push(new File([blob], `${CONFIG.event.id}_${tid}.png`, { type:'image/png' }));
-          if (files.length >= 10) break; // keep it reasonable for share sheets
-        }
-        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId}\nTickets attached (${files.length}).`;
-        if (files.length && navigator.canShare && navigator.canShare({ files })) {
-          await navigator.share({ files, title: `${CONFIG.event.title} tickets`, text });
-          return;
-        }
-        const wa = saNumberForWhatsApp(buyerCell);
-        if (!wa) { alert('Invalid SA mobile for WhatsApp'); return; }
-        const fallbackMsg = `${text}\n(Your device cannot share files from the browser. Please download PNG/PDF and send via WhatsApp.)`;
-        const encoded = encodeURIComponent(fallbackMsg);
-        window.open(`https://wa.me/${wa}?text=${encoded}`, '_blank');
-      } catch (e) {
-        console.error(e);
-        alert('Sharing failed. Try downloading and sending manually.');
-      }
-    }
-
-    // Header render
-    function renderHeader(){
-      qs('#venueLink').href = CONFIG.event.mapLink;
-      qs('#dateHuman').textContent = toHuman(CONFIG.event.dateISO);
-      qs('#doorsHuman').textContent = new Intl.DateTimeFormat(undefined, {hour:'2-digit', minute:'2-digit'}).format(new Date(CONFIG.event.doorsISO));
-      const img = qs('#heroImg'); img.src = CONFIG.event.heroImg; img.alt = CONFIG.event.heroAlt || 'Event image';
-      const logo = qs('#brandLogo'); if (logo) { logo.src = CONFIG.logoUrl; logo.setAttribute('crossorigin','anonymous'); }
-    }
-
-    // Tickets & Cart
-    const cart = new Map();
-    function renderTickets(){
-      const grid = qs('#ticketGrid'); grid.innerHTML='';
-      CONFIG.tickets.forEach(t=>{
-        const card = document.createElement('div');
-        card.className = 'ticket-card rounded-2xl border border-slate-200 p-4 sm:p-6 active:scale-[.99]';
-        card.innerHTML = `
-          <div class="flex items-center justify-between gap-3">
-            <div class="text-base sm:text-lg font-semibold">${t.name}</div>
-            <div class="text-lg sm:text-xl font-bold">${fmt(t.price)}</div>
-          </div>
-          <p class="mt-1 text-sm text-slate-600">${t.desc||''}</p>
-          <div class="mt-3 sm:mt-4 flex items-center gap-2">
-            <button data-code="${t.code}" class="qtyDown px-4 py-2 rounded-lg border active:scale-[.98]">−</button>
-            <input data-code="${t.code}" type="number" inputmode="numeric" min="0" max="${t.limit||99}" value="0" class="qtyInput w-20 text-center border rounded-lg py-2 text-base" />
-            <button data-code="${t.code}" class="qtyUp px-4 py-2 rounded-lg border active:scale-[.98]">+</button>
-          </div>`;
-        grid.appendChild(card);
-      });
-      qsa('.qtyUp').forEach(btn=>btn.addEventListener('click',()=>changeQty(btn.dataset.code,1)));
-      qsa('.qtyDown').forEach(btn=>btn.addEventListener('click',()=>changeQty(btn.dataset.code,-1)));
-      qsa('.qtyInput').forEach(inp=>inp.addEventListener('input',()=>setQty(inp.dataset.code,parseInt(inp.value||'0',10))));
-    }
-    function setQty(code, qty){
-      const t = CONFIG.tickets.find(x=>x.code===code);
-      const clamp = Math.max(0, Math.min(qty||0, t.limit||99));
-      if (clamp===0) cart.delete(code); else cart.set(code, clamp);
-      qsa(`.qtyInput[data-code="${code}"]`).forEach(i=>i.value=clamp);
-      renderOrder();
-    }
-    function changeQty(code, d){ setQty(code, (cart.get(code)||0)+d); }
-    function totals(){ let total=0; cart.forEach((qty,code)=>{ const t=CONFIG.tickets.find(x=>x.code===code); total += t.price*qty; }); return { total }; }
-    function renderOrder(){
-      const list = qs('#orderList'); if (list) list.innerHTML='';
-      if (list) {
-        if (cart.size===0) list.innerHTML = '<p class="text-slate-500">No tickets selected yet.</p>';
-        else cart.forEach((qty,code)=>{ const t=CONFIG.tickets.find(x=>x.code===code); const row=document.createElement('div'); row.className='flex items-center justify-between'; row.innerHTML=`<span class="text-sm">${t.name} × ${qty}</span><span class="text-sm font-medium">${fmt(t.price*qty)}</span>`; list.appendChild(row); });
-      }
-      const { total } = totals();
-      qs('#total').textContent = fmt(total);
-      qs('#totalMobile').textContent = fmt(total);
-      const enable = total>0;
-      ['#payBtnDesktop','#payBtnMobile'].forEach(sel=>{ const b=qs(sel); if(b){ b.disabled=!enable; }});
-    }
-
-    // Checkout logic
-    function openMockCheckout(items, total){
-      const modal = qs('#mockModal'); const sum = qs('#mockSummary');
-      const lines = items.map(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); return `<div class=\"flex justify-between\"><span>${t.name} × ${it.qty}</span><span>${fmt(t.price*it.qty)}</span></div>`; }).join('');
-      sum.innerHTML = lines + '<hr class="my-2"/>' + `<div class='flex justify-between font-semibold'><span>Total</span><span>${fmt(total)}</span></div>`;
-      qs('#mockForm').onsubmit = function(e){ e.preventDefault(); confirmMockPayment(items, total); };
-      qs('#mockSuccess').classList.add('hidden'); qs('#mockForm').classList.remove('hidden'); modal.classList.remove('hidden');
-      // Attach SA formatter to cell
-      const cellEl = qs('#buyerCell');
-      const run = ()=>{ const f = saFormatInternational(cellEl.value); if (f) { cellEl.setCustomValidity(''); cellEl.value = f; } else { cellEl.setCustomValidity('Enter a South African mobile like (+27) 82 123 4567'); } };
-      cellEl.addEventListener('blur', run, { once:false });
-      cellEl.addEventListener('change', run, { once:false });
-      cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
-    }
-    function closeMockCheckout(){ const m=qs('#mockModal'); if(m) m.classList.add('hidden'); }
-    function randomId(prefix){ return (prefix||'ord_') + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
-
-    function confirmMockPayment(items, total){
-      const name  = qs('#buyerName').value.trim();
-      const email = qs('#buyerEmail').value.trim();
-      let cellRaw = qs('#buyerCell').value.trim();
-      const cellFmt = saFormatInternational(cellRaw);
-      if(!name){ alert('Please enter your full name.'); return; }
-      if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Please enter a valid email address.'); return; }
-      if(!cellFmt){ alert('Please enter a South African mobile like (+27) 82 123 4567'); return; }
-      qs('#buyerCell').value = cellFmt;
-
-      const orderId = randomId('order_');
-      const ticketsDiv = qs('#mockTickets');
-      ticketsDiv.innerHTML = '';
-      const generated = [];
-      items.forEach(it=>{ const t = CONFIG.tickets.find(x=>x.code===it.code); for(let i=1;i<=it.qty;i++){
-        const tkt=randomId('TKT-');
-        const row=document.createElement('div');
-        row.className='grid grid-cols-[1fr,110px,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
-        row.setAttribute('data-ticket-id', tkt);
-        row.innerHTML = `<div>
-            <div class='font-medium'>${t.name}</div>
-            <div class='text-xs text-slate-500'>${tkt}</div>
-            <div class='text-xs'>${fmt(t.price)}</div>
-            <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.dateISO)} • ${CONFIG.event.venue}</div>
-            <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
-            <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${name} • ${cellFmt}</div>
-          </div>
-          <div id='qr_${tkt}' class='justify-self-end'></div>
-          <div id='mapqr_${tkt}' class='justify-self-end'></div>`;
-        ticketsDiv.appendChild(row);
-        const qrDiv = row.querySelector('#qr_'+tkt);
-        const mapDiv = row.querySelector('#mapqr_'+tkt);
-        const payload = JSON.stringify({ order: orderId, ticket: tkt, event: CONFIG.event.id, title: CONFIG.event.title, dateISO: CONFIG.event.dateISO, venue: CONFIG.event.venue, address: CONFIG.event.address, name, email, cell: cellFmt });
-        new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-        new QRCode(mapDiv, { text: CONFIG.event.mapLink, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-        // WhatsApp share button (per ticket)
-        const actions = document.createElement('div');
-        actions.className = 'col-span-3 flex gap-2 mt-2';
-        const waBtn = document.createElement('button');
-        waBtn.className = 'px-3 py-2 rounded-lg border hover:bg-slate-50';
-        waBtn.textContent = 'Send via WhatsApp';
-        waBtn.addEventListener('click', (e) => {
-          const rowEl = e.currentTarget.closest('[data-ticket-id]') || row;
-          shareTicketViaWhatsApp(rowEl, cellFmt, orderId, tkt);
-        });
-        actions.appendChild(waBtn);
-        row.appendChild(actions);
-        setTimeout(()=>{ const img1 = qrDiv.querySelector('img') || qrDiv.querySelector('canvas'); let dataUrl1=''; if (img1 && img1.tagName==='IMG') dataUrl1 = img1.src; else if (img1 && img1.toDataURL) dataUrl1 = img1.toDataURL('image/png'); const img2 = mapDiv.querySelector('img') || mapDiv.querySelector('canvas'); let dataUrl2=''; if (img2 && img2.tagName==='IMG') dataUrl2 = img2.src; else if (img2 && img2.toDataURL) dataUrl2 = img2.toDataURL('image/png'); generated.push({ code:t.code, name:t.name, ticket_id:tkt, price_cents:t.price, qr_png:dataUrl1, map_qr_png:dataUrl2 }); }, 40);
-      } });
-      qs('#mockOrder').textContent = orderId; qs('#mockForm').classList.add('hidden'); qs('#mockSuccess').classList.remove('hidden');
-
-      // PDF export (single page screenshot approach)
-      const pdfBtn = qs('#pdfBtn'); pdfBtn.onclick = async function(){ const { jsPDF } = window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'}); const container=document.createElement('div'); container.style.width='820px'; container.style.padding='20px'; container.style.fontFamily='Inter, Arial, sans-serif'; container.innerHTML = `<div style=\"display:flex;align-items:center;gap:12px;margin-bottom:8px\"><img src='${CONFIG.logoUrl}' crossorigin='anonymous' style=\"width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #e5e7eb;\" alt='logo'/><h2 style=\"margin:0\">${CONFIG.orgName} — ${CONFIG.event.title}</h2></div><div style=\"font-size:12px;color:#334155\">Order ${orderId}</div><div style=\"margin:8px 0 12px 0;font-size:12px;color:#334155\"><div><strong>Date:</strong> ${toHuman(CONFIG.event.dateISO)}</div><div><strong>Venue:</strong> ${CONFIG.event.venue}</div><div><strong>Address:</strong> ${CONFIG.event.address}</div><div><strong>Map:</strong> <a href='${CONFIG.event.mapLink}'>${CONFIG.event.mapLink}</a></div><div><strong>Buyer:</strong> ${name} &lt;${email}&gt; • ${cellFmt}</div></div>`; generated.forEach(t=>{ const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='1fr 110px 110px'; row.style.gap='12px'; row.style.alignItems='center'; row.style.border='1px solid #e2e8f0'; row.style.borderRadius='12px'; row.style.padding='10px 14px'; row.style.marginTop='10px'; row.innerHTML = `<div><div style='font-weight:600'>${t.name}</div><div style='font-size:12px;color:#64748b'>${t.ticket_id}</div></div>`; const img=document.createElement('img'); img.src=t.qr_png; img.style.width='110px'; img.style.height='110px'; img.style.objectFit='contain'; const mapimg=document.createElement('img'); mapimg.src=t.map_qr_png; mapimg.style.width='110px'; mapimg.style.height='110px'; mapimg.style.objectFit='contain'; row.appendChild(img); row.appendChild(mapimg); container.appendChild(row); }); document.body.appendChild(container); const canvas = await html2canvas(container); document.body.removeChild(container); const imgData=canvas.toDataURL('image/png'); const pageWidth=doc.internal.pageSize.getWidth(); const ratio=canvas.height/canvas.width; doc.addImage(imgData,'PNG',20,20,pageWidth-40,(pageWidth-40)*ratio); doc.save(`${CONFIG.event.id}_${orderId}_tickets.pdf`); };
-
-      // PNG export per ticket (with rounded border)
-      const pngBtn = qs('#pngBtn');
-      pngBtn.onclick = async function(){
-        const rows = qsa('#mockTickets > div');
-        if (!rows.length) { alert('No tickets to export.'); return; }
-        for (const row of rows) {
-          const prev = { backgroundColor: row.style.backgroundColor, borderRadius: row.style.borderRadius, border: row.style.border, boxShadow: row.style.boxShadow, overflow: row.style.overflow, padding: row.style.padding };
-          row.style.backgroundColor = '#ffffff'; row.style.borderRadius = '16px'; row.style.border = '2px solid #e2e8f0'; row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)'; row.style.overflow = 'hidden'; row.style.padding = row.style.padding || '12px 16px';
-          const canvas = await html2canvas(row, { backgroundColor: null, scale: 2 });
-          row.style.backgroundColor = prev.backgroundColor; row.style.borderRadius = prev.borderRadius; row.style.border = prev.border; row.style.boxShadow = prev.boxShadow; row.style.overflow = prev.overflow; row.style.padding = prev.padding;
-          const dataUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a'); const tid = row.dataset.ticketId || 'ticket'; a.href = dataUrl; a.download = `${CONFIG.event.id}_${tid}.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a); await new Promise(r=>setTimeout(r,120));
-        }
-      };
-
-      const shareAllBtn = qs('#shareAllBtn');
-      if (shareAllBtn) {
-        shareAllBtn.onclick = () => shareAllTickets(cellFmt, orderId);
-      }
-    }
-
-    function boot(){
-      try {
-        renderHeader(); renderTickets(); renderOrder();
-        // Pay buttons (both desktop + mobile)
-        const onPay = ()=>{
-          const items = Array.from(cart.entries()).map(([code,qty])=>({code,qty}));
-          const { total } = totals(); if (total<=0) { alert('Please select at least one ticket.'); return; }
-          openMockCheckout(items, total);
-        };
-        ['#payBtnDesktop','#payBtnMobile'].forEach(sel=>{ const b=qs(sel); if(b) b.addEventListener('click', onPay); });
-      } catch(e){ const b = qs('#errBanner'); if (b){ b.textContent = e.message || 'Script error'; b.classList.remove('hidden'); } console.error(e); }
-    }
-    document.addEventListener('DOMContentLoaded', boot);
-
-    // ===== Admin modal logic =====
-    const ADMIN_PASS = '!Password99@';
-    function openAdminModal(){ qs('#adminModal').classList.remove('hidden'); qs('#adminAuth').classList.remove('hidden'); qs('#adminForm').classList.add('hidden'); qs('#adminPwd').value=''; fillAdminForm(); }
-    function closeAdminModal(){ qs('#adminModal').classList.add('hidden'); }
-    function handleAdminAuth(){ const pwd = qs('#adminPwd').value; if (pwd === ADMIN_PASS){ qs('#adminAuth').classList.add('hidden'); qs('#adminForm').classList.remove('hidden'); } else { alert('Wrong password'); } }
-    function fillAdminForm(){ qs('#af_org').value = CONFIG.orgName || ''; qs('#af_logo').value = CONFIG.logoUrl || ''; qs('#af_title').value = CONFIG.event.title || ''; qs('#af_subtitle').value = CONFIG.event.subtitle || ''; qs('#af_date').value = CONFIG.event.dateISO || ''; qs('#af_doors').value = CONFIG.event.doorsISO || ''; qs('#af_venue').value = CONFIG.event.venue || ''; qs('#af_address').value = CONFIG.event.address || ''; qs('#af_map').value = CONFIG.event.mapLink || ''; qs('#af_hero').value = CONFIG.event.heroImg || ''; }
-    function applyAdminForm(e){ e.preventDefault(); CONFIG.orgName = qs('#af_org').value.trim() || CONFIG.orgName; CONFIG.logoUrl = qs('#af_logo').value.trim() || CONFIG.logoUrl; CONFIG.event.title = qs('#af_title').value.trim() || CONFIG.event.title; CONFIG.event.subtitle = qs('#af_subtitle').value.trim() || CONFIG.event.subtitle; CONFIG.event.dateISO = qs('#af_date').value.trim() || CONFIG.event.dateISO; CONFIG.event.doorsISO = qs('#af_doors').value.trim() || CONFIG.event.doorsISO; CONFIG.event.venue = qs('#af_venue').value.trim() || CONFIG.event.venue; CONFIG.event.address = qs('#af_address').value.trim() || CONFIG.event.address; CONFIG.event.mapLink = qs('#af_map').value.trim() || CONFIG.event.mapLink; CONFIG.event.heroImg = qs('#af_hero').value.trim() || CONFIG.event.heroImg; // persist
-      if (qs('#af_persist').checked) { try { localStorage.setItem('choir_config_override', JSON.stringify(CONFIG)); } catch(_){} }
-      renderHeader(); renderOrder(); closeAdminModal(); }
-    // Hook buttons
-    (function adminBoot(){ const btn = qs('#adminBtn'); if(btn){ btn.addEventListener('click', openAdminModal); } const form = qs('#adminForm'); if(form){ form.addEventListener('submit', applyAdminForm); }})();
-
-    // Load persisted config if present
-    (function loadPersist(){ try { const s = localStorage.getItem('choir_config_override'); if (s){ const o = JSON.parse(s); Object.assign(CONFIG, o); Object.assign(CONFIG.event, o.event||{}); } } catch(_){} })();
-
-    window.addEventListener('error', function(e){ const b=qs('#errBanner'); if (!b) return; b.textContent=(e.message||'Script error') + (e.filename? (' @ '+e.filename+':'+e.lineno):''); b.classList.remove('hidden'); });
-
-    // ===== Developer self-tests (quick sanity checks) =====
-    (function selfTests(){
-      function assertEq(name, a, b){ if (a!==b) throw new Error(name+` expected ${b} got ${a}`); console.log('✅', name); }
-      // SA number format tests
-      assertEq('saNormalizeNSN 0821234567',''+saNormalizeNSN('082 123 4567'),'821234567');
-      assertEq('saNormalizeNSN +27 82',''+(saNormalizeNSN('+27 82 123 4567')),'821234567');
-      assertEq('saFormatInternational',''+saFormatInternational('0821234567'),'(+27) 82 123 4567');
-      assertEq('saNumberForWhatsApp',''+saNumberForWhatsApp('0821234567'),'27821234567');
-      // Date formatting sanity checks (non-locale specific)
-      const doorsStr = new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'}).format(new Date(CONFIG.event.doorsISO));
-      if (typeof doorsStr !== 'string' || doorsStr.length < 3) throw new Error('doorsHuman format looks wrong');
-      console.log('✅ date formatter ok:', doorsStr);
-      console.log('✅ share helpers exist:', typeof shareTicketViaWhatsApp==='function' && typeof shareAllTickets==='function');
-      // Template literal sanity (catches stray quotes around backticks)
-      const titleSample = `${CONFIG.event.title} tickets`;
-      if (typeof titleSample !== 'string' || !titleSample.includes('tickets')) throw new Error('template literal broken');
-      console.log('✅ template literal ok:', titleSample);
-    })();
-  </script>
-</body>
 </html>
