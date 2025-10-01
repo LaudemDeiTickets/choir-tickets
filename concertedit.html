@@ -1,63 +1,202 @@
-<!-- FILE: concertedit.html -->
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Edit Concert — Laudem Dei</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<style> html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial} .form-note{font-size:12px;color:#64748b} </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Edit Concert — Laudem Dei</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style> html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial} .form-note{font-size:12px;color:#64748b} </style>
 </head>
 <body class="bg-slate-50">
-<div class="max-w-4xl mx-auto p-4 sm:p-6">
-<div class="flex items-center justify-between">
-<h1 class="text-2xl font-bold">Edit Concert</h1>
-<a href="index.html" class="px-3 py-2 rounded-lg border bg-white">Preview site</a>
-</div>
+  <div class="max-w-4xl mx-auto p-4 sm:p-6">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Edit Concert</h1>
+      <a href="index.html" class="px-3 py-2 rounded-lg border bg-white">Preview site</a>
+    </div>
 
+    <div id="auth" class="mt-4 bg-white border rounded-xl p-4">
+      <p class="text-sm text-slate-600">Enter password to edit.</p>
+      <div class="mt-2 flex gap-2">
+        <input id="pwd" type="password" class="border rounded-lg px-3 py-2 flex-1" placeholder="Password" />
+        <button id="unlock" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Unlock</button>
+      </div>
+      <p class="form-note mt-2">Password: <code>!Password99@</code> (client-side only; not secure for sensitive data)</p>
+    </div>
 
-<div id="auth" class="mt-4 bg-white border rounded-xl p-4">
-<p class="text-sm text-slate-600">Enter password to edit.</p>
-<div class="mt-2 flex gap-2">
-<input id="pwd" type="password" class="border rounded-lg px-3 py-2 flex-1" placeholder="Password" />
-<button id="unlock" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Unlock</button>
-</div>
-<p class="form-note mt-2">Password: <code>!Password99@</code> (client-side only; not secure for sensitive data)</p>
-</div>
+    <form id="form" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-white border rounded-xl p-4">
+      <div>
+        <label class="text-sm">Organisation</label>
+        <input id="org" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-sm">Logo URL</label>
+        <input id="logo" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm">Title</label>
+        <input id="title" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm">Subtitle</label>
+        <input id="subtitle" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-sm">Event date/time (ISO)</label>
+        <input id="dateISO" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:30:00+02:00" />
+      </div>
+      <div>
+        <label class="text-sm">Doors time (ISO)</label>
+        <input id="doorsISO" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:00:00+02:00" />
+      </div>
+      <div>
+        <label class="text-sm">Venue</label>
+        <input id="venue" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-sm">Address</label>
+        <input id="address" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm">Map link</label>
+        <input id="mapLink" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm">Hero image URL</label>
+        <input id="heroImg" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      </div>
 
+      <div class="md:col-span-2 mt-2">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Tickets</h3>
+          <button type="button" id="addTicket" class="px-3 py-2 rounded-lg border">Add ticket</button>
+        </div>
+        <p class="form-note mt-1">Price is in Rands. Limit is max purchasable per order.</p>
+        <div id="tickets" class="mt-2 space-y-2"></div>
+      </div>
 
-<form id="form" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-white border rounded-xl p-4">
-<div>
-<label class="text-sm">Organisation</label>
-<input id="org" class="mt-1 w-full border rounded-lg px-3 py-2" />
-</div>
-<div>
-<label class="text-sm">Logo URL</label>
-<input id="logo" class="mt-1 w-full border rounded-lg px-3 py-2" />
-</div>
-<div class="md:col-span-2">
-<label class="text-sm">Title</label>
-<input id="title" class="mt-1 w-full border rounded-lg px-3 py-2" />
-</div>
-<div class="md:col-span-2">
-<label class="text-sm">Subtitle</label>
-<input id="subtitle" class="mt-1 w-full border rounded-lg px-3 py-2" />
-</div>
-<div>
-<label class="text-sm">Event date/time (ISO)</label>
-<input id="dateISO" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:30:00+02:00" />
-</div>
-<div>
-<label class="text-sm">Doors time (ISO)</label>
-<input id="doorsISO" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:00:00+02:00" />
-</div>
-<div>
-<label class="text-sm">Venue</label>
-<input id="venue" class="mt-1 w-full border rounded-lg px-3 py-2" />
-</div>
-<div>
-<label class="text-sm">Address</label>
-<input id="address" class="mt-1 w-full border rounded-lg px-3 py-2" />
+      <div class="md:col-span-2 mt-2 flex items-center justify-between">
+        <label class="flex items-center gap-2 text-sm text-slate-600"><input id="persist" type="checkbox" class="rounded"/> Save changes in this browser</label>
+        <div class="flex gap-2">
+          <button type="button" id="reset" class="px-4 py-2 rounded-lg border">Reset</button>
+          <button type="button" id="clear" class="px-4 py-2 rounded-lg border">Clear storage</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Save</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="toast" class="hidden fixed bottom-4 right-4 bg-emerald-600 text-white text-sm px-3 py-2 rounded-lg shadow">Saved</div>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+    const ADMIN_PASS = '!Password99@';
+    const DEFAULT = {
+      orgName: "Laudem Dei Chamber Choir",
+      logoUrl: "assets/logo.jpg",
+      event: { id:"choir-2025-spring-concert", title:"Spring Serenade Concert", subtitle:"An evening of choral gems", dateISO:"2025-10-11T18:30:00+02:00", doorsISO:"2025-10-11T18:00:00+02:00", venue:"St. Stithians Chapel", address:"40 Peter Place, Lyme Park, Sandton, 2191", mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton", heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert", heroAlt:"Choir on stage" },
+      tickets: [ { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 }, { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 }, { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 } ],
+      simulateCheckout: true,
+      currency: 'ZAR'
+    };
+
+    function load(){
+      try{ const s = localStorage.getItem('choir_config_override'); if (!s) return structuredClone(DEFAULT); const o = JSON.parse(s); const base = structuredClone(DEFAULT); Object.assign(base, o||{}); base.event = Object.assign({}, DEFAULT.event, o?.event||{}); base.tickets = Array.isArray(o?.tickets) ? o.tickets : DEFAULT.tickets; return base; }catch{ return structuredClone(DEFAULT); }
+    }
+    function save(cfg){ try { localStorage.setItem('choir_config_override', JSON.stringify(cfg)); } catch(_){} }
+    const cents = (r) => Math.round((parseFloat(String(r).replace(/[^0-9.,]/g,'').replace(',','.'))||0)*100);
+    const rands = (c) => (Math.max(0,parseInt(c||0,10))/100).toFixed(0);
+
+    function el(id){ return document.getElementById(id); }
+    const form = el('form'); const auth = el('auth'); const toast = el('toast');
+
+    function gate(){ const ok = el('pwd').value === ADMIN_PASS; if (!ok) { alert('Wrong password'); return; } auth.classList.add('hidden'); form.classList.remove('hidden'); render(); }
+
+    function render(){
+      const cfg = load();
+      el('org').value = cfg.orgName || '';
+      el('logo').value = cfg.logoUrl || '';
+      el('title').value = cfg.event.title || '';
+      el('subtitle').value = cfg.event.subtitle || '';
+      el('dateISO').value = cfg.event.dateISO || '';
+      el('doorsISO').value = cfg.event.doorsISO || '';
+      el('venue').value = cfg.event.venue || '';
+      el('address').value = cfg.event.address || '';
+      el('mapLink').value = cfg.event.mapLink || '';
+      el('heroImg').value = cfg.event.heroImg || '';
+      renderTickets(cfg.tickets);
+    }
+
+    function renderTickets(list){
+      const wrap = el('tickets'); wrap.innerHTML='';
+      const PRICE_MAX_R = 2000, LIMIT_MAX = 99;
+      list.forEach((t, idx)=>{
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-12 gap-2 items-start border border-slate-200 rounded-lg p-3 bg-white';
+        row.innerHTML = \`
+          <div class="col-span-3">
+            <label class="text-xs text-slate-500">Code</label>
+            <input data-k="code" class="mt-1 w-full border rounded-lg px-2 py-2 text-sm" value="\${t.code}" />
+          </div>
+          <div class="col-span-5">
+            <label class="text-xs text-slate-500">Name</label>
+            <input data-k="name" class="mt-1 w-full border rounded-lg px-2 py-2 text-sm" value="\${t.name}" />
+          </div>
+          <div class="col-span-4 grid grid-cols-1 gap-1">
+            <div class="flex items-center justify-between"><label class="text-xs text-slate-500">Price (R)</label><span class="text-[11px] text-slate-500">0–\${PRICE_MAX_R}</span></div>
+            <div class="grid grid-cols-[1fr,64px] gap-2 items-center">
+              <input type="range" min="0" max="\${PRICE_MAX_R}" step="5" value="\${rands(t.price)}" data-k="price_range" class="w-full">
+              <input type="number" min="0" max="\${PRICE_MAX_R}" step="5" value="\${rands(t.price)}" data-k="price" class="w-full border rounded-lg px-2 py-2 text-sm">
+            </div>
+          </div>
+          <div class="col-span-4 grid grid-cols-1 gap-1">
+            <div class="flex items-center justify-between"><label class="text-xs text-slate-500">Limit</label><span class="text-[11px] text-slate-500">0–\${LIMIT_MAX}</span></div>
+            <div class="grid grid-cols-[1fr,64px] gap-2 items-center">
+              <input type="range" min="0" max="\${LIMIT_MAX}" step="1" value="\${t.limit||0}" data-k="limit_range" class="w-full">
+              <input type="number" min="0" max="\${LIMIT_MAX}" step="1" value="\${t.limit||0}" data-k="limit" class="w-full border rounded-lg px-2 py-2 text-sm">
+            </div>
+          </div>
+          <div class="col-span-12">
+            <label class="text-xs text-slate-500">Description</label>
+            <input data-k="desc" class="mt-1 w-full border rounded-lg px-2 py-2 text-sm" value="\${t.desc||''}" />
+          </div>
+          <div class="col-span-12 flex justify-end mt-2">
+            <button type="button" data-k="remove" class="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50">Remove</button>
+          </div>\`;
+        wrap.appendChild(row);
+        const rangeP = row.querySelector('[data-k="price_range"]'); const inputP = row.querySelector('[data-k="price"]'); rangeP.addEventListener('input', ()=> inputP.value = rangeP.value); inputP.addEventListener('input', ()=> { let v = parseInt(inputP.value||'0',10); if (isNaN(v)) v=0; v=Math.max(0,Math.min(v,PRICE_MAX_R)); inputP.value=v; rangeP.value=v; });
+        const rangeL = row.querySelector('[data-k="limit_range"]'); const inputL = row.querySelector('[data-k="limit"]'); rangeL.addEventListener('input', ()=> inputL.value = rangeL.value); inputL.addEventListener('input', ()=> { let v = parseInt(inputL.value||'0',10); if (isNaN(v)) v=0; v=Math.max(0,Math.min(v,LIMIT_MAX)); inputL.value=v; rangeL.value=v; });
+        row.querySelector('[data-k="remove"]').addEventListener('click', ()=>{ list.splice(idx,1); renderTickets(list); });
+      });
+    }
+
+    document.getElementById('unlock').addEventListener('click', gate);
+    document.getElementById('addTicket').addEventListener('click', ()=>{ const cfg = load(); (cfg.tickets||=[]).push({ code:'NEW', name:'New Ticket', price:0, desc:'', limit:0 }); save(cfg); render(); });
+    document.getElementById('reset').addEventListener('click', ()=>{ save(DEFAULT); render(); toastIt('Reset to defaults'); });
+    document.getElementById('clear').addEventListener('click', ()=>{ localStorage.removeItem('choir_config_override'); render(); toastIt('Cleared saved data'); });
+    document.getElementById('form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const cfg = load();
+      cfg.orgName = document.getElementById('org').value.trim() || cfg.orgName;
+      cfg.logoUrl = document.getElementById('logo').value.trim() || cfg.logoUrl;
+      cfg.event.title = document.getElementById('title').value.trim() || cfg.event.title;
+      cfg.event.subtitle = document.getElementById('subtitle').value.trim() || cfg.event.subtitle;
+      cfg.event.dateISO = document.getElementById('dateISO').value.trim() || cfg.event.dateISO;
+      cfg.event.doorsISO = document.getElementById('doorsISO').value.trim() || cfg.event.doorsISO;
+      cfg.event.venue = document.getElementById('venue').value.trim() || cfg.event.venue;
+      cfg.event.address = document.getElementById('address').value.trim() || cfg.event.address;
+      cfg.event.mapLink = document.getElementById('mapLink').value.trim() || cfg.event.mapLink;
+      cfg.event.heroImg = document.getElementById('heroImg').value.trim() || cfg.event.heroImg;
+      const list = []; document.querySelectorAll('#tickets > div').forEach(row=>{ const code = row.querySelector('[data-k="code"]').value.trim(); const name = row.querySelector('[data-k="name"]').value.trim(); const priceR = row.querySelector('[data-k="price"]').value.trim(); const limit = parseInt(row.querySelector('[data-k="limit"]').value.trim()||'0',10) || 0; const desc = row.querySelector('[data-k="desc"]').value.trim(); list.push({ code, name, price: Math.round(parseFloat(priceR||'0')*100), desc, limit }); }); cfg.tickets = list; if (document.getElementById('persist').checked) save(cfg); toastIt('Saved. Open the site to see changes.');
+    });
+
+    function toastIt(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 1600); }
+
+    (function(){ if (!document.getElementById('unlock')) throw new Error('unlock btn missing'); console.log('✅ editor booted'); })();
+  })();
+  </script>
+</body>
+</html>
