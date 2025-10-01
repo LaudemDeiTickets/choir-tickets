@@ -18,7 +18,7 @@
     .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:600;border:1px solid var(--soft);background:#fff}
     .row{display:flex;gap:10px;flex-wrap:wrap}
     .grow{flex:1 1 220px}
-    input[type="text"], input[type="search"], input[type="url"], select{height:40px;padding:0 12px;border:1px solid var(--soft);border-radius:10px;background:#fff;color:var(--ink);outline:none;}
+    input[type="text"], input[type="search"], input[type="url"], select{height:40px;padding:0 12px;border:1px solid var(--soft);border-radius:10px;background:#fff;color:var(--ink);outline:none}
     input[type="file"]{border:1px dashed var(--soft);padding:8px;border-radius:10px;background:#fff}
     button{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--soft);background:#fff;color:var(--ink);cursor:pointer}
     button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -33,7 +33,7 @@
     canvas{display:none}
     .aim{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(255,255,255,.7);border-radius:16px;margin:6%}
     .lightbar{position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg, transparent, rgba(14,165,233,.9), transparent);animation:scan 2.4s linear infinite}
-    @keyframes scan{0%{transform:translateY(0)}50%{transform:translateY( calc(100% - 4px) )}100%{transform:translateY(0)}}
+    @keyframes scan{0%{transform:translateY(0)}50%{transform:translateY(calc(100% - 4px))}100%{transform:translateY(0)}}
     .log{max-height:420px;overflow:auto;border-radius:12px}
     .log table{width:100%;border-collapse:collapse}
     .log th,.log td{padding:10px 12px;border-bottom:1px solid var(--soft);text-align:left}
@@ -49,6 +49,12 @@
     .status.bad{color:var(--bad)}
     .mini{font-size:12px}
     .footer{color:var(--muted);font-size:12px;margin-top:12px}
+    /* Big scan button */
+    .bigscan{display:block;width:100%;padding:16px 20px;font-size:20px;font-weight:800;margin-top:12px}
+    /* Tests */
+    details.tests{margin-top:16px}
+    .pass{color:#166534}
+    .fail{color:#991b1b}
   </style>
 </head>
 <body>
@@ -96,6 +102,7 @@
           <div class="aim"><div class="lightbar"></div></div>
           <canvas id="canvas"></canvas>
         </div>
+        <button id="bigScanBtn" class="primary bigscan">SCAN TICKET</button>
         <div id="last" style="margin-top:12px">
           <div>Last scan: <span id="lastStatus" class="status muted">—</span></div>
           <div class="mini muted" id="lastDetail">Ready</div>
@@ -113,6 +120,10 @@
           </table>
         </div>
         <div class="footer">Tip: use multiple devices; logs are per device. You can export/import if you need to consolidate.</div>
+        <details class="tests">
+          <summary>Self‑tests</summary>
+          <ul id="testList" class="mini"></ul>
+        </details>
       </aside>
     </main>
   </div>
@@ -130,9 +141,24 @@
   const b64ToUint8 = (b64)=> Uint8Array.from(atob(b64.replace(/\s/g,'')), c=>c.charCodeAt(0));
   const toCSV = (rows)=> rows.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(',')).join('\n');
 
+  // === Tailored parsing for Laudem Dei ticket QR ===
+  // Recognise codes like TKT-9em5xizskfdf in plain text, URLs, or JSON
+  const CHOIR_TICKET_REGEX = /(?:^|[?#&=\/:])(TKT-[A-Za-z0-9]{6,})\b/;
+  function extractTicketId(text){
+    if(!text) return null;
+    const m = text.match(CHOIR_TICKET_REGEX);
+    if(m) return m[1];
+    if(/^TKT-[A-Za-z0-9]{6,}$/.test(text.trim())) return text.trim();
+    return null;
+  }
+  function slugifyEventId(){
+    const ev = ($("eventName").value||'LaudemDei').trim();
+    return ev ? ev.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') : 'laudemdei';
+  }
+
   // ===== State =====
   let stream = null; let currentDeviceId = null; let scanning = false; let torchOn=false; let barcodeDetector=null;
-  let whitelist = new Map(); // ticket_id -> {holder, event_id, signature}
+  let whitelist = new Map(); // ticket_id -> {holder, event_id, type, price, signature}
   let lastCode = '';
 
   function storageKey(){
@@ -168,21 +194,35 @@
   // ===== Ticket parsing & verification =====
   function parseQR(text){
     // Accept JSON, URL with params, or plain string
+    // Priority: explicit ticket_id, then TKT- pattern anywhere
     try {
       if(text.trim().startsWith('{')){
         const j = JSON.parse(text);
-        return {ticket_id:j.ticket_id||j.id||j.code, event_id:j.event_id||j.event||j.eid, holder:j.holder||j.name, sig:j.signature||j.sig||null, raw:j};
+        const ticket_id = j.ticket_id || j.id || j.code || extractTicketId(text);
+        return {
+          ticket_id,
+          event_id: j.event_id || j.event || j.eid || slugifyEventId(),
+          holder: j.holder || j.name || j.buyer || '',
+          type: j.type || j.category || '',
+          price: j.price || j.amount || '',
+          sig: j.signature || j.sig || null,
+          raw: j
+        };
       }
     } catch {}
     try {
       const u = new URL(text);
-      const ticket_id = u.searchParams.get('ticket_id')||u.searchParams.get('t')||u.pathname.split('/').pop();
+      const ticket_id = u.searchParams.get('ticket_id') || u.searchParams.get('t') || u.searchParams.get('ticket') || extractTicketId(text) || u.pathname.split('/').pop();
       const sig = u.searchParams.get('sig');
-      const event_id = u.searchParams.get('event_id')||u.searchParams.get('e');
-      const holder = u.searchParams.get('holder')||u.searchParams.get('h');
-      return {ticket_id, event_id, holder, sig, raw:text};
+      const event_id = u.searchParams.get('event_id') || u.searchParams.get('e') || slugifyEventId();
+      const holder = u.searchParams.get('holder') || u.searchParams.get('h') || u.searchParams.get('buyer') || '';
+      const type = u.searchParams.get('type') || u.searchParams.get('category') || '';
+      const price = u.searchParams.get('price') || '';
+      return {ticket_id, event_id, holder, type, price, sig, raw:text};
     } catch {}
-    return {ticket_id:text.trim(), event_id:null, holder:null, sig:null, raw:text};
+    // Plain string
+    const tk = extractTicketId(text) || text.trim();
+    return {ticket_id: tk, event_id: slugifyEventId(), holder: '', type: '', price: '', sig: null, raw:text};
   }
 
   async function verifyTicket(payload){
@@ -200,15 +240,17 @@
     // 1) Whitelist
     if(whitelist.has(ticket_id)){
       const w = whitelist.get(ticket_id);
-      return {ok:true, status:'Admit', detail:`Whitelist ✓ — ${w.holder||holder||''}`.trim(), holder:w.holder||holder||'', cls:'ok'};
+      const name = w.holder || holder || '';
+      return {ok:true, status:'Admit', detail:`Whitelist ✓ — ${name}`.trim(), holder:name, cls:'ok'};
     }
 
-    // 2) Signature
+    // 2) Signature (Ed25519) if present
     const pubB64 = $("publicKey").value.trim();
     if(pubB64 && sig){
       try{
         const pub = b64ToUint8(pubB64); const signature = b64ToUint8(sig);
-        const msgStr = `${event_id||''}:${ticket_id}`; const msg = new TextEncoder().encode(msgStr);
+        const msgStr = `${event_id||slugifyEventId()}:${ticket_id}`;
+        const msg = new TextEncoder().encode(msgStr);
         const ok = nacl.sign.detached.verify(msg, signature, pub);
         if(ok) return {ok:true, status:'Admit', detail:'Signature ✓', holder:holder||'', cls:'ok'};
         return {ok:false, status:'Rejected', detail:'Signature ✕', cls:'bad'};
@@ -217,24 +259,30 @@
       }
     }
 
-    // 3) Online API
+    // 3) Online API (supports /verify and /tickets/verify)
     const base = $("apiBase").value.trim();
     if(base){
       try{
-        const q = new URL(base.replace(/\/$/,'' )+`/verify`);
-        if(event_id) q.searchParams.set('event_id', event_id);
-        q.searchParams.set('ticket_id', ticket_id);
-        if(sig) q.searchParams.set('sig', sig);
-        const res = await fetch(q.toString(), {headers:{'Accept':'application/json'}});
-        const data = await res.json();
-        if(data.ok) return {ok:true, status:'Admit', detail:data.detail||'API ✓', holder:data.holder||holder||'', cls:'ok'};
-        return {ok:false, status:data.status||'Rejected', detail:data.detail||'API ✕', cls:'bad'};
+        const paths = ['/verify','/tickets/verify'];
+        for(const p of paths){
+          const q = new URL(base.replace(/\/$/,'' )+p);
+          q.searchParams.set('ticket_id', ticket_id);
+          if(event_id) q.searchParams.set('event_id', event_id);
+          if(sig) q.searchParams.set('sig', sig);
+          const res = await fetch(q.toString(), {headers:{'Accept':'application/json'}});
+          if(res.ok){
+            const data = await res.json();
+            if(data && data.ok) return {ok:true, status:'Admit', detail:data.detail||'API ✓', holder:data.holder||holder||'', cls:'ok'};
+            if(data && data.status) return {ok:false, status:data.status, detail:data.detail||'API ✕', cls:'bad'};
+          }
+        }
+        return {ok:false, status:'Error', detail:'API error / offline', cls:'bad'};
       }catch(err){
         return {ok:false, status:'Error', detail:'API error / offline', cls:'bad'};
       }
     }
 
-    // 4) Fallback (no whitelist, no signature, no API) —
+    // 4) Fallback — admit (venue can choose stricter mode by requiring whitelist or API)
     return {ok:true, status:'Admit', detail:'No whitelist/signature/API — admitting by fallback rule', holder:holder||'', cls:'ok'};
   }
 
@@ -274,9 +322,11 @@
     stream = await navigator.mediaDevices.getUserMedia(constraints);
     const video = $("video"); video.srcObject = stream; await video.play();
     scanning = true; detectLoop();
+    updateScanButton();
   }
   function stopCamera(){
     scanning=false; if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    updateScanButton();
   }
 
   async function detectLoop(){
@@ -319,7 +369,15 @@
   }
 
   // ===== IO / Events =====
+  function updateScanButton(){
+    const b = $("bigScanBtn"); if(!b) return;
+    b.textContent = scanning ? 'PAUSE SCAN' : 'SCAN TICKET';
+    b.classList.toggle('warn', scanning);
+    b.classList.toggle('primary', !scanning);
+  }
+
   $("startBtn").onclick = startCamera;
+  $("bigScanBtn").onclick = async ()=>{ if(scanning){ stopCamera(); } else { await startCamera(); } };
   $("stopBtn").onclick = stopCamera;
   $("torchBtn").onclick = toggleTorch;
   $("flipBtn").onclick = async ()=>{
@@ -335,9 +393,26 @@
       const data = JSON.parse(text);
       whitelist.clear();
       if(Array.isArray(data)){
-        for(const t of data){ if(!t) continue; const id = t.ticket_id||t.id||t.code; if(!id) continue; whitelist.set(String(id), {holder:t.holder||t.name||'', event_id:t.event_id||t.event||'', signature:t.signature||t.sig||null}); }
+        for(const t of data){
+          if(!t) continue; const id = t.ticket_id||t.id||t.code; if(!id) continue;
+          whitelist.set(String(id), {
+            holder: t.holder||t.name||t.buyer||'',
+            event_id: t.event_id||t.event||'',
+            type: t.type||t.category||'',
+            price: t.price||'',
+            signature: t.signature||t.sig||null
+          });
+        }
       } else if (data && typeof data==='object' && data.tickets){
-        for(const t of data.tickets){ const id = t.ticket_id||t.id||t.code; if(!id) continue; whitelist.set(String(id), {holder:t.holder||'', event_id:t.event_id||'', signature:t.signature||null}); }
+        for(const t of data.tickets){ const id = t.ticket_id||t.id||t.code; if(!id) continue;
+          whitelist.set(String(id), {
+            holder: t.holder||'',
+            event_id: t.event_id||'',
+            type: t.type||'',
+            price: t.price||'',
+            signature: t.signature||null
+          });
+        }
       }
       alert(`Loaded whitelist: ${whitelist.size} tickets`);
     }catch(err){ alert('Whitelist JSON parse error'); }
@@ -356,15 +431,40 @@
     if(confirm('Clear this device\'s check‑in log for the current event?')){ writeLog([]); renderLog(); setLast('—','Ready',''); }
   };
 
+  // ===== Self‑tests =====
+  function addTestResult(ok, label){
+    const li = document.createElement('li');
+    li.className = ok? 'pass' : 'fail';
+    li.textContent = (ok? '✔ ' : '✖ ') + label;
+    $("testList").appendChild(li);
+  }
+  function runSelfTests(){
+    const before = $("eventName").value; $("eventName").value = 'Laudem Dei — St. Stithians 2025-10-11 18:30';
+    // Plain
+    addTestResult(extractTicketId('TKT-9em5xizskfdf')==='TKT-9em5xizskfdf','extract plain code');
+    // URL param
+    addTestResult(extractTicketId('https://x/scan?ticket_id=TKT-abcdef123456')==='TKT-abcdef123456','extract from ticket_id param');
+    // URL path or other param
+    addTestResult(extractTicketId('https://x/t/TKT-zzYY7711?x=1')==='TKT-zzYY7711','extract from path');
+    // JSON
+    const pj = parseQR('{"ticket_id":"TKT-1A2b3C4d5E","holder":"Jane"}');
+    addTestResult(pj.ticket_id==='TKT-1A2b3C4d5E' && pj.holder==='Jane','parse JSON payload');
+    // Fallback slug event id
+    const ps = parseQR('TKT-abc987');
+    addTestResult(!!ps.event_id && ps.event_id.includes('laudem'), 'derive event slug when missing');
+    $("eventName").value = before;
+  }
+
   // Bootstrap
   (async function init(){
-    setLast('—','Ready',''); renderLog();
+    setLast('—','Ready',''); renderLog(); updateScanButton();
     try {
       await navigator.mediaDevices.getUserMedia({video:true});
       await listCameras();
     } catch {
       // ignore; will request on Start
     }
+    runSelfTests();
   })();
   </script>
 </body>
