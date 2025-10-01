@@ -3,200 +3,200 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Edit Concert — Laudem Dei</title>
+  <title>Edit Concert — Laudem Dei Chamber Choir</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style> html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial} .form-note{font-size:12px;color:#64748b} </style>
+  <style> html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; } .form-note{font-size:11px;color:#64748b;} </style>
 </head>
-<body class="bg-slate-50">
-  <div class="max-w-4xl mx-auto p-4 sm:p-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Edit Concert</h1>
-      <a href="index.html" class="px-3 py-2 rounded-lg border bg-white">Preview site</a>
-    </div>
+<body class="bg-white text-slate-800">
+  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
+    <nav class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="index.html" class="text-sky-700 hover:underline">← Back</a>
+      <div class="ml-auto text-sm text-slate-600">Admin editor (client‑side)</div>
+    </nav>
+  </header>
 
-    <div id="auth" class="mt-4 bg-white border rounded-xl p-4">
-      <p class="text-sm text-slate-600">Enter password to edit.</p>
-      <div class="mt-2 flex gap-2">
-        <input id="pwd" type="password" class="border rounded-lg px-3 py-2 flex-1" placeholder="Password" />
-        <button id="unlock" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Unlock</button>
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <h1 class="text-xl font-bold">Edit Concert Info</h1>
+    <p class="text-xs text-slate-500 mt-1">Changes save to your browser (localStorage) and will reflect on <code>index.html</code> and <code>checkout.html</code> on this device.</p>
+
+    <div id="auth" class="mt-4">
+      <label class="text-sm text-slate-600">Enter password</label>
+      <input id="pwd" type="password" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Password" />
+      <div class="mt-3 flex justify-end">
+        <button id="unlockBtn" class="px-4 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">Unlock</button>
       </div>
-      <p class="form-note mt-2">Password: <code>!Password99@</code> (client-side only; not secure for sensitive data)</p>
     </div>
 
-    <form id="form" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-white border rounded-xl p-4">
+    <form id="form" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
       <div>
         <label class="text-sm">Organisation</label>
-        <input id="org" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_org" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div>
         <label class="text-sm">Logo URL</label>
-        <input id="logo" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_logo" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div class="md:col-span-2">
         <label class="text-sm">Title</label>
-        <input id="title" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_title" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div class="md:col-span-2">
         <label class="text-sm">Subtitle</label>
-        <input id="subtitle" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_subtitle" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div>
         <label class="text-sm">Event date/time (ISO)</label>
-        <input id="dateISO" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:30:00+02:00" />
+        <input id="af_date" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:30:00+02:00" />
       </div>
       <div>
         <label class="text-sm">Doors time (ISO)</label>
-        <input id="doorsISO" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:00:00+02:00" />
+        <input id="af_doors" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="2025-10-11T18:00:00+02:00" />
       </div>
       <div>
         <label class="text-sm">Venue</label>
-        <input id="venue" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_venue" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div>
         <label class="text-sm">Address</label>
-        <input id="address" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_address" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div class="md:col-span-2">
         <label class="text-sm">Map link</label>
-        <input id="mapLink" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_map" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
       <div class="md:col-span-2">
         <label class="text-sm">Hero image URL</label>
-        <input id="heroImg" class="mt-1 w-full border rounded-lg px-3 py-2" />
+        <input id="af_hero" class="mt-1 w-full border rounded-lg px-3 py-2" />
       </div>
 
-      <div class="md:col-span-2 mt-2">
+      <!-- Ticket Manager -->
+      <div class="md:col-span-2 mt-4">
         <div class="flex items-center justify-between">
-          <h3 class="font-semibold">Tickets</h3>
-          <button type="button" id="addTicket" class="px-3 py-2 rounded-lg border">Add ticket</button>
+          <h4 class="font-semibold">Tickets</h4>
+          <button type="button" id="addTicket" class="px-3 py-2 rounded-lg border hover:bg-slate-50">Add ticket</button>
         </div>
-        <p class="form-note mt-1">Price is in Rands. Limit is max purchasable per order.</p>
-        <div id="tickets" class="mt-2 space-y-2"></div>
+        <p class="form-note mt-1">Prices are in Rands (e.g. 200 for R200). Limits are max purchasable per order.</p>
+        <div id="ticketWrap" class="mt-2 space-y-2"></div>
       </div>
 
       <div class="md:col-span-2 mt-2 flex items-center justify-between">
         <label class="flex items-center gap-2 text-sm text-slate-600"><input id="persist" type="checkbox" class="rounded"/> Save changes in this browser</label>
         <div class="flex gap-2">
-          <button type="button" id="reset" class="px-4 py-2 rounded-lg border">Reset</button>
-          <button type="button" id="clear" class="px-4 py-2 rounded-lg border">Clear storage</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Save</button>
+          <a href="index.html" class="px-4 py-2 rounded-lg border">Cancel</a>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700">Save</button>
         </div>
       </div>
     </form>
-
-    <div id="toast" class="hidden fixed bottom-4 right-4 bg-emerald-600 text-white text-sm px-3 py-2 rounded-lg shadow">Saved</div>
-  </div>
+  </main>
 
   <script>
-  (function(){
-    'use strict';
+    const STORAGE_KEYS = { CONFIG: 'choir_config_override' };
     const ADMIN_PASS = '!Password99@';
-    const DEFAULT = {
+
+    const DEFAULT_CONFIG = {
       orgName: "Laudem Dei Chamber Choir",
-      logoUrl: "assets/logo.jpg",
+      logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
       event: { id:"choir-2025-spring-concert", title:"Spring Serenade Concert", subtitle:"An evening of choral gems", dateISO:"2025-10-11T18:30:00+02:00", doorsISO:"2025-10-11T18:00:00+02:00", venue:"St. Stithians Chapel", address:"40 Peter Place, Lyme Park, Sandton, 2191", mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton", heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert", heroAlt:"Choir on stage" },
-      tickets: [ { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 }, { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 }, { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 } ],
-      simulateCheckout: true,
-      currency: 'ZAR'
+      tickets: [ { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 }, { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 }, { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 } ]
     };
 
-    function load(){
-      try{ const s = localStorage.getItem('choir_config_override'); if (!s) return structuredClone(DEFAULT); const o = JSON.parse(s); const base = structuredClone(DEFAULT); Object.assign(base, o||{}); base.event = Object.assign({}, DEFAULT.event, o?.event||{}); base.tickets = Array.isArray(o?.tickets) ? o.tickets : DEFAULT.tickets; return base; }catch{ return structuredClone(DEFAULT); }
+    function loadConfig(){ try{ const s=localStorage.getItem(STORAGE_KEYS.CONFIG); if (s){ const o=JSON.parse(s); const cfg=structuredClone(DEFAULT_CONFIG); Object.assign(cfg,o); if(o.event) Object.assign(cfg.event,o.event); if(o.tickets) cfg.tickets=o.tickets; return cfg; } }catch(_){} return structuredClone(DEFAULT_CONFIG); }
+    function saveConfig(cfg){ localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(cfg)); }
+    const CONFIG = loadConfig();
+
+    // Money helpers
+    const randToCents = (r) => { const v = String(r||'').replace(/[^0-9.,]/g,'').replace(',', '.'); const n = parseFloat(v); return isNaN(n) ? 0 : Math.round(n*100); };
+    const centsToRand = (c) => (Math.max(0, parseInt(c||0,10))/100).toFixed(0);
+
+    function addTicketRow(t){
+      const wrap = document.getElementById('ticketWrap');
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-12 gap-2 items-end border border-slate-200 rounded-xl p-3';
+      row.innerHTML = `
+        <div class='col-span-2'>
+          <label class='text-xs text-slate-600'>Code</label>
+          <input class='af_code mt-1 w-full border rounded-lg px-2 py-1 text-sm' value='${t.code||''}' />
+        </div>
+        <div class='col-span-4'>
+          <label class='text-xs text-slate-600'>Name</label>
+          <input class='af_name mt-1 w-full border rounded-lg px-2 py-1 text-sm' value='${t.name||''}' />
+        </div>
+        <div class='col-span-3'>
+          <label class='text-xs text-slate-600'>Price (R)</label>
+          <input class='af_price mt-1 w-full border rounded-lg px-2 py-1 text-sm' value='${centsToRand(t.price||0)}' />
+        </div>
+        <div class='col-span-2'>
+          <label class='text-xs text-slate-600'>Limit</label>
+          <input class='af_limit mt-1 w-full border rounded-lg px-2 py-1 text-sm' value='${t.limit||0}' />
+        </div>
+        <div class='col-span-1 flex justify-end'>
+          <button type='button' class='del mt-5 px-3 py-2 rounded-lg border hover:bg-slate-50'>✕</button>
+        </div>`;
+      wrap.appendChild(row);
+      row.querySelector('.del').addEventListener('click', ()=> wrap.removeChild(row));
     }
-    function save(cfg){ try { localStorage.setItem('choir_config_override', JSON.stringify(cfg)); } catch(_){} }
-    const cents = (r) => Math.round((parseFloat(String(r).replace(/[^0-9.,]/g,'').replace(',','.'))||0)*100);
-    const rands = (c) => (Math.max(0,parseInt(c||0,10))/100).toFixed(0);
 
-    function el(id){ return document.getElementById(id); }
-    const form = el('form'); const auth = el('auth'); const toast = el('toast');
-
-    function gate(){ const ok = el('pwd').value === ADMIN_PASS; if (!ok) { alert('Wrong password'); return; } auth.classList.add('hidden'); form.classList.remove('hidden'); render(); }
-
-    function render(){
-      const cfg = load();
-      el('org').value = cfg.orgName || '';
-      el('logo').value = cfg.logoUrl || '';
-      el('title').value = cfg.event.title || '';
-      el('subtitle').value = cfg.event.subtitle || '';
-      el('dateISO').value = cfg.event.dateISO || '';
-      el('doorsISO').value = cfg.event.doorsISO || '';
-      el('venue').value = cfg.event.venue || '';
-      el('address').value = cfg.event.address || '';
-      el('mapLink').value = cfg.event.mapLink || '';
-      el('heroImg').value = cfg.event.heroImg || '';
-      renderTickets(cfg.tickets);
+    function fillForm(){
+      document.getElementById('af_org').value = CONFIG.orgName || '';
+      document.getElementById('af_logo').value = CONFIG.logoUrl || '';
+      document.getElementById('af_title').value = CONFIG.event.title || '';
+      document.getElementById('af_subtitle').value = CONFIG.event.subtitle || '';
+      document.getElementById('af_date').value = CONFIG.event.dateISO || '';
+      document.getElementById('af_doors').value = CONFIG.event.doorsISO || '';
+      document.getElementById('af_venue').value = CONFIG.event.venue || '';
+      document.getElementById('af_address').value = CONFIG.event.address || '';
+      document.getElementById('af_map').value = CONFIG.event.mapLink || '';
+      document.getElementById('af_hero').value = CONFIG.event.heroImg || '';
+      const wrap = document.getElementById('ticketWrap'); wrap.innerHTML='';
+      CONFIG.tickets.forEach(t=> addTicketRow(t));
     }
 
-    function renderTickets(list){
-      const wrap = el('tickets'); wrap.innerHTML='';
-      const PRICE_MAX_R = 2000, LIMIT_MAX = 99;
-      list.forEach((t, idx)=>{
-        const row = document.createElement('div');
-        row.className = 'grid grid-cols-12 gap-2 items-start border border-slate-200 rounded-lg p-3 bg-white';
-        row.innerHTML = \`
-          <div class="col-span-3">
-            <label class="text-xs text-slate-500">Code</label>
-            <input data-k="code" class="mt-1 w-full border rounded-lg px-2 py-2 text-sm" value="\${t.code}" />
-          </div>
-          <div class="col-span-5">
-            <label class="text-xs text-slate-500">Name</label>
-            <input data-k="name" class="mt-1 w-full border rounded-lg px-2 py-2 text-sm" value="\${t.name}" />
-          </div>
-          <div class="col-span-4 grid grid-cols-1 gap-1">
-            <div class="flex items-center justify-between"><label class="text-xs text-slate-500">Price (R)</label><span class="text-[11px] text-slate-500">0–\${PRICE_MAX_R}</span></div>
-            <div class="grid grid-cols-[1fr,64px] gap-2 items-center">
-              <input type="range" min="0" max="\${PRICE_MAX_R}" step="5" value="\${rands(t.price)}" data-k="price_range" class="w-full">
-              <input type="number" min="0" max="\${PRICE_MAX_R}" step="5" value="\${rands(t.price)}" data-k="price" class="w-full border rounded-lg px-2 py-2 text-sm">
-            </div>
-          </div>
-          <div class="col-span-4 grid grid-cols-1 gap-1">
-            <div class="flex items-center justify-between"><label class="text-xs text-slate-500">Limit</label><span class="text-[11px] text-slate-500">0–\${LIMIT_MAX}</span></div>
-            <div class="grid grid-cols-[1fr,64px] gap-2 items-center">
-              <input type="range" min="0" max="\${LIMIT_MAX}" step="1" value="\${t.limit||0}" data-k="limit_range" class="w-full">
-              <input type="number" min="0" max="\${LIMIT_MAX}" step="1" value="\${t.limit||0}" data-k="limit" class="w-full border rounded-lg px-2 py-2 text-sm">
-            </div>
-          </div>
-          <div class="col-span-12">
-            <label class="text-xs text-slate-500">Description</label>
-            <input data-k="desc" class="mt-1 w-full border rounded-lg px-2 py-2 text-sm" value="\${t.desc||''}" />
-          </div>
-          <div class="col-span-12 flex justify-end mt-2">
-            <button type="button" data-k="remove" class="px-3 py-2 rounded-lg border border-red-300 text-red-700 hover:bg-red-50">Remove</button>
-          </div>\`;
-        wrap.appendChild(row);
-        const rangeP = row.querySelector('[data-k="price_range"]'); const inputP = row.querySelector('[data-k="price"]'); rangeP.addEventListener('input', ()=> inputP.value = rangeP.value); inputP.addEventListener('input', ()=> { let v = parseInt(inputP.value||'0',10); if (isNaN(v)) v=0; v=Math.max(0,Math.min(v,PRICE_MAX_R)); inputP.value=v; rangeP.value=v; });
-        const rangeL = row.querySelector('[data-k="limit_range"]'); const inputL = row.querySelector('[data-k="limit"]'); rangeL.addEventListener('input', ()=> inputL.value = rangeL.value); inputL.addEventListener('input', ()=> { let v = parseInt(inputL.value||'0',10); if (isNaN(v)) v=0; v=Math.max(0,Math.min(v,LIMIT_MAX)); inputL.value=v; rangeL.value=v; });
-        row.querySelector('[data-k="remove"]').addEventListener('click', ()=>{ list.splice(idx,1); renderTickets(list); });
+    function collectTickets(){
+      const rows = Array.from(document.querySelectorAll('#ticketWrap > div'));
+      const out = [];
+      rows.forEach(row=>{
+        const code  = row.querySelector('.af_code').value.trim();
+        const name  = row.querySelector('.af_name').value.trim();
+        const price = randToCents(row.querySelector('.af_price').value);
+        const limit = Math.max(0, parseInt(row.querySelector('.af_limit').value||'0', 10));
+        if (code && name && price>0) out.push({ code, name, price, limit });
       });
+      return out;
     }
 
-    document.getElementById('unlock').addEventListener('click', gate);
-    document.getElementById('addTicket').addEventListener('click', ()=>{ const cfg = load(); (cfg.tickets||=[]).push({ code:'NEW', name:'New Ticket', price:0, desc:'', limit:0 }); save(cfg); render(); });
-    document.getElementById('reset').addEventListener('click', ()=>{ save(DEFAULT); render(); toastIt('Reset to defaults'); });
-    document.getElementById('clear').addEventListener('click', ()=>{ localStorage.removeItem('choir_config_override'); render(); toastIt('Cleared saved data'); });
-    document.getElementById('form').addEventListener('submit', (e)=>{
+    function save(e){
       e.preventDefault();
-      const cfg = load();
-      cfg.orgName = document.getElementById('org').value.trim() || cfg.orgName;
-      cfg.logoUrl = document.getElementById('logo').value.trim() || cfg.logoUrl;
-      cfg.event.title = document.getElementById('title').value.trim() || cfg.event.title;
-      cfg.event.subtitle = document.getElementById('subtitle').value.trim() || cfg.event.subtitle;
-      cfg.event.dateISO = document.getElementById('dateISO').value.trim() || cfg.event.dateISO;
-      cfg.event.doorsISO = document.getElementById('doorsISO').value.trim() || cfg.event.doorsISO;
-      cfg.event.venue = document.getElementById('venue').value.trim() || cfg.event.venue;
-      cfg.event.address = document.getElementById('address').value.trim() || cfg.event.address;
-      cfg.event.mapLink = document.getElementById('mapLink').value.trim() || cfg.event.mapLink;
-      cfg.event.heroImg = document.getElementById('heroImg').value.trim() || cfg.event.heroImg;
-      const list = []; document.querySelectorAll('#tickets > div').forEach(row=>{ const code = row.querySelector('[data-k="code"]').value.trim(); const name = row.querySelector('[data-k="name"]').value.trim(); const priceR = row.querySelector('[data-k="price"]').value.trim(); const limit = parseInt(row.querySelector('[data-k="limit"]').value.trim()||'0',10) || 0; const desc = row.querySelector('[data-k="desc"]').value.trim(); list.push({ code, name, price: Math.round(parseFloat(priceR||'0')*100), desc, limit }); }); cfg.tickets = list; if (document.getElementById('persist').checked) save(cfg); toastIt('Saved. Open the site to see changes.');
-    });
+      const cfg = loadConfig();
+      cfg.orgName = document.getElementById('af_org').value.trim() || cfg.orgName;
+      cfg.logoUrl = document.getElementById('af_logo').value.trim() || cfg.logoUrl;
+      cfg.event.title = document.getElementById('af_title').value.trim() || cfg.event.title;
+      cfg.event.subtitle = document.getElementById('af_subtitle').value.trim() || cfg.event.subtitle;
+      cfg.event.dateISO = document.getElementById('af_date').value.trim() || cfg.event.dateISO;
+      cfg.event.doorsISO = document.getElementById('af_doors').value.trim() || cfg.event.doorsISO;
+      cfg.event.venue = document.getElementById('af_venue').value.trim() || cfg.event.venue;
+      cfg.event.address = document.getElementById('af_address').value.trim() || cfg.event.address;
+      cfg.event.mapLink = document.getElementById('af_map').value.trim() || cfg.event.mapLink;
+      cfg.event.heroImg = document.getElementById('af_hero').value.trim() || cfg.event.heroImg;
+      cfg.tickets = collectTickets();
+      if (document.getElementById('persist').checked) saveConfig(cfg);
+      else localStorage.removeItem(STORAGE_KEYS.CONFIG);
+      alert('Saved! Returning to tickets page.');
+      window.location.href = 'index.html';
+    }
 
-    function toastIt(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 1600); }
-
-    (function(){ if (!document.getElementById('unlock')) throw new Error('unlock btn missing'); console.log('✅ editor booted'); })();
-  })();
+    function boot(){
+      document.getElementById('unlockBtn').addEventListener('click', ()=>{
+        const pwd = document.getElementById('pwd').value;
+        if (pwd === ADMIN_PASS){ document.getElementById('auth').classList.add('hidden'); document.getElementById('form').classList.remove('hidden'); fillForm(); }
+        else alert('Wrong password');
+      });
+      document.getElementById('addTicket').addEventListener('click', ()=> addTicketRow({ code:'NEW', name:'New Ticket', price:10000, limit:10 }));
+      document.getElementById('form').addEventListener('submit', save);
+    }
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
   </script>
 </body>
 </html>
