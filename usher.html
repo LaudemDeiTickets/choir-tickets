@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Usher Check‑In — QR Ticket Scanner</title>
+  <style>
+    :root{
+      --bg:#f7f9fc; --card:#ffffff; --ink:#0b1220; --muted:#667085; --ok:#16a34a; --warn:#ca8a04; --bad:#dc2626; --brand:#0ea5e9; --soft:#e2e8f0;
+    }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+    header{display:grid;gap:12px;grid-template-columns:1fr}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+    .card{background:var(--card);border:1px solid var(--soft);border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+    .pad{padding:14px}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:600;border:1px solid var(--soft);background:#fff}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .grow{flex:1 1 220px}
+    input[type="text"], input[type="search"], input[type="url"], select{height:40px;padding:0 12px;border:1px solid var(--soft);border-radius:10px;background:#fff;color:var(--ink);outline:none;}
+    input[type="file"]{border:1px dashed var(--soft);padding:8px;border-radius:10px;background:#fff}
+    button{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--soft);background:#fff;color:var(--ink);cursor:pointer}
+    button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    button.good{background:var(--ok);border-color:var(--ok);color:#fff}
+    button.warn{background:var(--warn);border-color:var(--warn);color:#fff}
+    button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:960px){.grid{grid-template-columns: 2fr 1fr}}
+    .scanner{position:relative;border-radius:16px;overflow:hidden}
+    video{width:100%;display:block;background:#000;aspect-ratio:3/4;object-fit:cover}
+    canvas{display:none}
+    .aim{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(255,255,255,.7);border-radius:16px;margin:6%}
+    .lightbar{position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg, transparent, rgba(14,165,233,.9), transparent);animation:scan 2.4s linear infinite}
+    @keyframes scan{0%{transform:translateY(0)}50%{transform:translateY( calc(100% - 4px) )}100%{transform:translateY(0)}}
+    .log{max-height:420px;overflow:auto;border-radius:12px}
+    .log table{width:100%;border-collapse:collapse}
+    .log th,.log td{padding:10px 12px;border-bottom:1px solid var(--soft);text-align:left}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+    .ok{background:#dcfce7;color:#166534}
+    .dup{background:#fef9c3;color:#854d0e}
+    .bad{background:#fee2e2;color:#991b1b}
+    .muted{color:var(--muted)}
+    .hint{font-size:12px;color:var(--muted)}
+    .status{font-weight:800}
+    .status.ok{color:var(--ok)}
+    .status.warn{color:var(--warn)}
+    .status.bad{color:var(--bad)}
+    .mini{font-size:12px}
+    .footer{color:var(--muted);font-size:12px;margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="card pad">
+      <div class="row">
+        <div class="grow">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="badge">🎟️ Usher Check‑In</span>
+            <span class="hint">Works fully offline. Load a whitelist JSON for strict verification, or use signature/public key, or an API.</span>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <input class="grow" id="eventName" type="text" placeholder="Event name (e.g., Laudem Dei — Oct 26, 2025)" />
+        <input class="grow" id="publicKey" type="text" placeholder="Optional: Ed25519 public key (base64) for signature verification" />
+      </div>
+      <div class="row">
+        <div class="grow">
+          <label class="mini muted">Offline whitelist (JSON)</label>
+          <input id="whitelistFile" type="file" accept="application/json" />
+        </div>
+        <div class="grow">
+          <label class="mini muted">Online Verify API (optional)</label>
+          <input id="apiBase" type="url" placeholder="https://your-api.example.com" />
+        </div>
+      </div>
+      <div class="toolbar">
+        <select id="cameraSelect"></select>
+        <button id="startBtn" class="primary">Start Camera</button>
+        <button id="stopBtn">Stop</button>
+        <button id="torchBtn">Toggle Torch</button>
+        <button id="flipBtn">Flip Camera</button>
+        <input id="manual" type="search" placeholder="Manual code / paste QR content" class="grow" />
+        <button id="manualBtn" class="good">Verify Manual</button>
+        <button id="exportBtn">Export Check‑In Log</button>
+        <button id="resetBtn" class="danger">Reset Check‑In Log</button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card pad">
+        <div class="scanner">
+          <video id="video" playsinline></video>
+          <div class="aim"><div class="lightbar"></div></div>
+          <canvas id="canvas"></canvas>
+        </div>
+        <div id="last" style="margin-top:12px">
+          <div>Last scan: <span id="lastStatus" class="status muted">—</span></div>
+          <div class="mini muted" id="lastDetail">Ready</div>
+        </div>
+      </section>
+
+      <aside class="card pad">
+        <h3 style="margin:6px 0 8px">Check‑In Log</h3>
+        <div class="log card">
+          <table id="logTable">
+            <thead>
+              <tr><th>Time</th><th>Ticket</th><th>Holder</th><th>Status</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="footer">Tip: use multiple devices; logs are per device. You can export/import if you need to consolidate.</div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Fallback QR decoder -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <!-- Ed25519 verify (TweetNaCl) for signed tickets -->
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+
+  <script>
+  // ===== Utilities =====
+  const $ = (id)=>document.getElementById(id);
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  const nowStr = ()=> new Date().toLocaleTimeString();
+  const b64ToUint8 = (b64)=> Uint8Array.from(atob(b64.replace(/\s/g,'')), c=>c.charCodeAt(0));
+  const toCSV = (rows)=> rows.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+
+  // ===== State =====
+  let stream = null; let currentDeviceId = null; let scanning = false; let torchOn=false; let barcodeDetector=null;
+  let whitelist = new Map(); // ticket_id -> {holder, event_id, signature}
+  let lastCode = '';
+
+  function storageKey(){
+    const ev = ($("eventName").value||'default').trim();
+    return `usher-checkins::${ev}`;
+  }
+
+  function readLog(){
+    try { return JSON.parse(localStorage.getItem(storageKey())||'[]'); } catch { return []; }
+  }
+  function writeLog(rows){ localStorage.setItem(storageKey(), JSON.stringify(rows)); }
+
+  function renderLog(){
+    const tbody = $("logTable").querySelector('tbody');
+    tbody.innerHTML = '';
+    for(const row of readLog().slice().reverse()){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${row.time}</td><td>${row.ticket_id||''}</td><td>${row.holder||''}</td><td><span class="pill ${row.statusClass}">${row.status}</span></td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function setLast(status, detail, cls){
+    const s = $("lastStatus"); const d = $("lastDetail");
+    s.textContent = status; d.textContent = detail; s.className = `status ${cls||''}`;
+  }
+
+  function ding(ok=true){
+    try { new Audio(ok? "data:audio/wav;base64,UklGRgAAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAAABAQAA" : "data:audio/wav;base64,UklGRgAAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAAAABAQAA").play(); } catch {}
+    if(navigator.vibrate) navigator.vibrate(ok?[40,30,40]:[140]);
+  }
+
+  // ===== Ticket parsing & verification =====
+  function parseQR(text){
+    // Accept JSON, URL with params, or plain string
+    try {
+      if(text.trim().startsWith('{')){
+        const j = JSON.parse(text);
+        return {ticket_id:j.ticket_id||j.id||j.code, event_id:j.event_id||j.event||j.eid, holder:j.holder||j.name, sig:j.signature||j.sig||null, raw:j};
+      }
+    } catch {}
+    try {
+      const u = new URL(text);
+      const ticket_id = u.searchParams.get('ticket_id')||u.searchParams.get('t')||u.pathname.split('/').pop();
+      const sig = u.searchParams.get('sig');
+      const event_id = u.searchParams.get('event_id')||u.searchParams.get('e');
+      const holder = u.searchParams.get('holder')||u.searchParams.get('h');
+      return {ticket_id, event_id, holder, sig, raw:text};
+    } catch {}
+    return {ticket_id:text.trim(), event_id:null, holder:null, sig:null, raw:text};
+  }
+
+  async function verifyTicket(payload){
+    // Priority: (1) whitelist; (2) signature with public key; (3) remote API; (4) fallback accept
+    const {ticket_id, event_id, holder, sig} = payload;
+    if(!ticket_id) return {ok:false, status:'Invalid', detail:'QR has no ticket_id', cls:'bad'};
+
+    // Duplicate check
+    const log = readLog();
+    const already = log.find(r=>r.ticket_id===ticket_id);
+    if(already){
+      return {ok:false, status:'Duplicate', detail:`Already checked in at ${already.time}`, cls:'warn'};
+    }
+
+    // 1) Whitelist
+    if(whitelist.has(ticket_id)){
+      const w = whitelist.get(ticket_id);
+      return {ok:true, status:'Admit', detail:`Whitelist ✓ — ${w.holder||holder||''}`.trim(), holder:w.holder||holder||'', cls:'ok'};
+    }
+
+    // 2) Signature
+    const pubB64 = $("publicKey").value.trim();
+    if(pubB64 && sig){
+      try{
+        const pub = b64ToUint8(pubB64); const signature = b64ToUint8(sig);
+        const msgStr = `${event_id||''}:${ticket_id}`; const msg = new TextEncoder().encode(msgStr);
+        const ok = nacl.sign.detached.verify(msg, signature, pub);
+        if(ok) return {ok:true, status:'Admit', detail:'Signature ✓', holder:holder||'', cls:'ok'};
+        return {ok:false, status:'Rejected', detail:'Signature ✕', cls:'bad'};
+      }catch(err){
+        return {ok:false, status:'Error', detail:'Signature verify error', cls:'bad'};
+      }
+    }
+
+    // 3) Online API
+    const base = $("apiBase").value.trim();
+    if(base){
+      try{
+        const q = new URL(base.replace(/\/$/,'' )+`/verify`);
+        if(event_id) q.searchParams.set('event_id', event_id);
+        q.searchParams.set('ticket_id', ticket_id);
+        if(sig) q.searchParams.set('sig', sig);
+        const res = await fetch(q.toString(), {headers:{'Accept':'application/json'}});
+        const data = await res.json();
+        if(data.ok) return {ok:true, status:'Admit', detail:data.detail||'API ✓', holder:data.holder||holder||'', cls:'ok'};
+        return {ok:false, status:data.status||'Rejected', detail:data.detail||'API ✕', cls:'bad'};
+      }catch(err){
+        return {ok:false, status:'Error', detail:'API error / offline', cls:'bad'};
+      }
+    }
+
+    // 4) Fallback (no whitelist, no signature, no API) —
+    return {ok:true, status:'Admit', detail:'No whitelist/signature/API — admitting by fallback rule', holder:holder||'', cls:'ok'};
+  }
+
+  function record(ticket_id, holder, status, statusClass){
+    const row = {time: nowStr(), ticket_id, holder: holder||'', status, statusClass};
+    const rows = readLog(); rows.push(row); writeLog(rows); renderLog();
+  }
+
+  async function handleCode(rawText){
+    if(!rawText || rawText===lastCode) return; // simple de‑bounce
+    lastCode = rawText;
+    const parsed = parseQR(rawText);
+    const verdict = await verifyTicket(parsed);
+    setLast(verdict.status, `${parsed.ticket_id||''} — ${verdict.detail}`, verdict.cls);
+    ding(verdict.ok);
+    if(verdict.ok) record(parsed.ticket_id, verdict.holder, verdict.status, 'ok'); else record(parsed.ticket_id, parsed.holder, verdict.status, verdict.cls==='warn'?'dup':'bad');
+    // Cooldown to avoid double reads
+    await sleep(750); lastCode='';
+  }
+
+  // ===== Camera / Scanning =====
+  async function listCameras(){
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d=>d.kind==='videoinput');
+    const sel = $("cameraSelect"); sel.innerHTML='';
+    cams.forEach((c,i)=>{
+      const opt = document.createElement('option');
+      opt.value = c.deviceId; opt.textContent = c.label || `Camera ${i+1}`;
+      sel.appendChild(opt);
+    });
+    if(cams[0]) currentDeviceId = cams[0].deviceId;
+  }
+
+  async function startCamera(){
+    if(stream) stopCamera();
+    const constraints = { video: { deviceId: currentDeviceId? {exact: currentDeviceId}: undefined, facingMode: currentDeviceId? undefined : { ideal:'environment' }, width:{ideal:1280}, height:{ideal:1920}} };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = $("video"); video.srcObject = stream; await video.play();
+    scanning = true; detectLoop();
+  }
+  function stopCamera(){
+    scanning=false; if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  }
+
+  async function detectLoop(){
+    // Prefer native BarcodeDetector where available
+    if('BarcodeDetector' in window){
+      try{ barcodeDetector = new window.BarcodeDetector({formats:['qr_code']}); }catch{}
+    }
+    const video = $("video"); const canvas = $("canvas"); const ctx = canvas.getContext('2d');
+    while(scanning){
+      if(video.readyState >= 2){
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        let codeText = '';
+        if(barcodeDetector){
+          try {
+            const codes = await barcodeDetector.detect(canvas);
+            if(codes && codes[0]) codeText = codes[0].rawValue;
+          } catch {}
+        }
+        if(!codeText){
+          const img = ctx.getImageData(0,0,canvas.width, canvas.height);
+          const qr = jsQR(img.data, img.width, img.height, {inversionAttempts: 'dontInvert'});
+          if(qr) codeText = qr.data;
+        }
+        if(codeText){ handleCode(codeText); }
+      }
+      await sleep(120);
+    }
+  }
+
+  async function toggleTorch(){
+    if(!stream) return;
+    const track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities?.();
+    if(caps && 'torch' in caps){
+      torchOn = !torchOn; await track.applyConstraints({advanced:[{torch: torchOn}]});
+    } else {
+      alert('Torch control not supported on this device');
+    }
+  }
+
+  // ===== IO / Events =====
+  $("startBtn").onclick = startCamera;
+  $("stopBtn").onclick = stopCamera;
+  $("torchBtn").onclick = toggleTorch;
+  $("flipBtn").onclick = async ()=>{
+    const sel = $("cameraSelect"); if(sel.options.length<2) return;
+    const idx = (sel.selectedIndex+1) % sel.options.length; sel.selectedIndex = idx; currentDeviceId = sel.value; await startCamera();
+  }
+  $("cameraSelect").onchange = async (e)=>{ currentDeviceId = e.target.value; await startCamera(); };
+
+  $("whitelistFile").onchange = async (e)=>{
+    const file = e.target.files?.[0]; if(!file) return;
+    const text = await file.text();
+    try{
+      const data = JSON.parse(text);
+      whitelist.clear();
+      if(Array.isArray(data)){
+        for(const t of data){ if(!t) continue; const id = t.ticket_id||t.id||t.code; if(!id) continue; whitelist.set(String(id), {holder:t.holder||t.name||'', event_id:t.event_id||t.event||'', signature:t.signature||t.sig||null}); }
+      } else if (data && typeof data==='object' && data.tickets){
+        for(const t of data.tickets){ const id = t.ticket_id||t.id||t.code; if(!id) continue; whitelist.set(String(id), {holder:t.holder||'', event_id:t.event_id||'', signature:t.signature||null}); }
+      }
+      alert(`Loaded whitelist: ${whitelist.size} tickets`);
+    }catch(err){ alert('Whitelist JSON parse error'); }
+  };
+
+  $("manualBtn").onclick = ()=>{ const v = $("manual").value.trim(); if(v) handleCode(v); };
+
+  $("exportBtn").onclick = ()=>{
+    const rows = readLog();
+    const csvRows = [["time","ticket_id","holder","status"]].concat(rows.map(r=>[r.time,r.ticket_id,r.holder,r.status]));
+    const blob = new Blob([toCSV(csvRows)], {type:'text/csv'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `checkins_${Date.now()}.csv`; a.click();
+  };
+
+  $("resetBtn").onclick = ()=>{
+    if(confirm('Clear this device\'s check‑in log for the current event?')){ writeLog([]); renderLog(); setLast('—','Ready',''); }
+  };
+
+  // Bootstrap
+  (async function init(){
+    setLast('—','Ready',''); renderLog();
+    try {
+      await navigator.mediaDevices.getUserMedia({video:true});
+      await listCameras();
+    } catch {
+      // ignore; will request on Start
+    }
+  })();
+  </script>
+</body>
+</html>
