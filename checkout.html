@@ -9,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
@@ -38,13 +37,13 @@
         <input id="buyerName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Thandi Ndlovu" required />
       </div>
       <div>
-        <label class="text-sm text-slate-600">Email for e‑tickets</label>
+        <label class="text-sm text-slate-600">Email for e-tickets</label>
         <input id="buyerEmail" type="email" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="you@example.com" required />
       </div>
       <div>
         <label class="text-sm text-slate-600">Cell number <span class="text-slate-400">(South Africa only)</span></label>
         <input id="buyerCell" inputmode="tel" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="(+27) 82 123 4567" required />
-        <p class="text-[11px] text-slate-500 mt-1">SA mobiles: must start with 06/07/08. Auto‑formats on blur.</p>
+        <p class="text-[11px] text-slate-500 mt-1">SA mobiles: must start with 06/07/08. Auto-formats on blur.</p>
       </div>
 
       <div>
@@ -68,8 +67,9 @@
       <div id="ticketList" class="mt-3 text-sm"></div>
       <div class="h-3"></div>
       <div class="flex flex-col sm:flex-row gap-2 justify-end">
+        <button id="icsBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Add to Calendar (.ics)</button>
+        <a id="gcalBtn" target="_blank" rel="noopener" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Add to Google Calendar</a>
         <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-700 text-white font-semibold hover:opacity-90">Download PNG Tickets</button>
-        <button id="pdfBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90">Download PDF Tickets</button>
         <button id="shareAllBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Share all via WhatsApp</button>
         <a href="index.html" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 text-center">Close</a>
       </div>
@@ -84,10 +84,33 @@
       const def = {
         orgName: "Laudem Dei Chamber Choir",
         logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
-        event: { id:"choir-2025-spring-concert", title:"Spring Serenade Concert", subtitle:"An evening of choral gems", dateISO:"2025-10-11T18:30:00+02:00", doorsISO:"2025-10-11T18:00:00+02:00", venue:"St. Stithians Chapel", address:"40 Peter Place, Lyme Park, Sandton, 2191", mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton", heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert", heroAlt:"Choir on stage" },
-        tickets: [ { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 }, { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 }, { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 } ]
+        event: {
+          id:"choir-2025-spring-concert",
+          title:"Spring Serenade Concert",
+          subtitle:"An evening of choral gems",
+          dateISO:"2025-10-11T18:30:00+02:00",
+          doorsISO:"2025-10-11T18:00:00+02:00",
+          venue:"St. Stithians Chapel",
+          address:"40 Peter Place, Lyme Park, Sandton, 2191",
+          mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
+          heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert",
+          heroAlt:"Choir on stage"
+        },
+        tickets: [
+          { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 },
+          { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 },
+          { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 }
+        ]
       };
-      try { const s=localStorage.getItem(STORAGE_KEYS.CONFIG); if (s){ const o=JSON.parse(s); Object.assign(def, o); if (o.event) Object.assign(def.event, o.event); if (o.tickets) def.tickets=o.tickets; } } catch(_){}
+      try {
+        const s=localStorage.getItem(STORAGE_KEYS.CONFIG);
+        if (s){
+          const o=JSON.parse(s);
+          Object.assign(def, o);
+          if (o.event) Object.assign(def.event, o.event);
+          if (o.tickets) def.tickets=o.tickets;
+        }
+      } catch(_){}
       return def;
     }
     const CONFIG = loadConfig();
@@ -185,7 +208,7 @@
       CART.items.forEach(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); for(let i=1;i<=it.qty;i++){
         const tkt=randomId('TKT-');
         const row=document.createElement('div');
-        row.className='grid grid-cols-[1fr,110px,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
+        row.className='grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
         row.dataset.ticketId = tkt;
         row.innerHTML = `<div>
             <div class='flex items-center gap-2'>
@@ -198,18 +221,86 @@
             <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
             <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${name} • ${cellFmt}</div>
           </div>
-          <div id='qr_${tkt}' class='justify-self-end'></div>
-          <div id='mapqr_${tkt}' class='justify-self-end'></div>`;
+          <div id='qr_${tkt}' class='justify-self-end'></div>`;
         list.appendChild(row);
         const qrDiv = row.querySelector('#qr_'+tkt);
-        const mapDiv = row.querySelector('#mapqr_'+tkt);
         const payload = JSON.stringify({ order: orderId, ticket: tkt, event: CONFIG.event.id, title: CONFIG.event.title, dateISO: CONFIG.event.dateISO, venue: CONFIG.event.venue, address: CONFIG.event.address, name, email, cell: cellFmt });
         new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-        new QRCode(mapDiv, { text: CONFIG.event.mapLink, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-        setTimeout(()=>{ const i1 = qrDiv.querySelector('img')||qrDiv.querySelector('canvas'); const d1 = i1 && (i1.tagName==='IMG'? i1.src : i1.toDataURL('image/png')); const i2 = mapDiv.querySelector('img')||mapDiv.querySelector('canvas'); const d2 = i2 && (i2.tagName==='IMG'? i2.src : i2.toDataURL('image/png')); generated.push({ name:t.name, ticket_id:tkt, price_cents:t.price, qr_png:d1, map_qr_png:d2 }); }, 40);
+        setTimeout(()=>{ 
+          const i1 = qrDiv.querySelector('img')||qrDiv.querySelector('canvas'); 
+          const d1 = i1 && (i1.tagName==='IMG'? i1.src : i1.toDataURL('image/png')); 
+          generated.push({ name:t.name, ticket_id:tkt, price_cents:t.price, qr_png:d1 }); 
+        }, 40);
       }});
 
-      qs('#orderId').textContent = orderId; qs('#mockForm').classList.add('hidden'); qs('#successArea').classList.remove('hidden');
+      qs('#orderId').textContent = orderId; 
+      qs('#mockForm').classList.add('hidden'); 
+      qs('#successArea').classList.remove('hidden');
+
+      // ---- Add-to-Calendar wiring ----
+
+      // Helper: JS Date -> ICS UTC YYYYMMDDTHHMMSSZ
+      function icsDateUTC(d) {
+        return new Date(d).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      }
+
+      // Times
+      const start = new Date(CONFIG.event.dateISO);           // has timezone offset in ISO
+      const durationMs = 2 * 60 * 60 * 1000;                  // default 2h
+      const end   = new Date(start.getTime() + durationMs);
+
+      // Event details
+      const summary = `${CONFIG.orgName} — ${CONFIG.event.title}`;
+      const location = `${CONFIG.event.venue}, ${CONFIG.event.address}`;
+      const description =
+        `Doors: ${
+          new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'})
+            .format(new Date(CONFIG.event.doorsISO))
+        }\nMap: ${CONFIG.event.mapLink}\nOrder: ${orderId}`;
+
+      // Build ICS text
+      const ics =
+`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Laudem Dei//Tickets//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:${orderId}@laudemdei.tickets
+DTSTAMP:${icsDateUTC(Date.now())}
+DTSTART:${icsDateUTC(start)}
+DTEND:${icsDateUTC(end)}
+SUMMARY:${summary.replace(/\n/g,' ')}
+LOCATION:${location.replace(/\n/g,' ')}
+DESCRIPTION:${description.replace(/\n/g,' ')}
+END:VEVENT
+END:VCALENDAR`;
+
+      // .ics download
+      const icsBtn = qs('#icsBtn');
+      if (icsBtn) {
+        icsBtn.onclick = () => {
+          const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${CONFIG.event.id}_${orderId}.ics`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+      }
+
+      // Google Calendar link (UTC range)
+      const gcalBtn = qs('#gcalBtn');
+      if (gcalBtn) {
+        const gTitle   = encodeURIComponent(summary);
+        const gDetails = encodeURIComponent(description);
+        const gLoc     = encodeURIComponent(location);
+        const gDates   = `${icsDateUTC(start)}/${icsDateUTC(end)}`;
+        gcalBtn.href   = `https://www.google.com/calendar/render?action=TEMPLATE&text=${gTitle}&dates=${gDates}&location=${gLoc}&details=${gDetails}`;
+      }
 
       // PNG per ticket
       qs('#pngBtn').onclick = async function(){
@@ -222,16 +313,6 @@
           const dataUrl = canvas.toDataURL('image/png');
           const a = document.createElement('a'); const tid = row.dataset.ticketId || 'ticket'; a.href = dataUrl; a.download = `${CONFIG.event.id}_${tid}.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a); await new Promise(r=>setTimeout(r,120));
         }
-      };
-
-      // PDF export
-      qs('#pdfBtn').onclick = async function(){
-        const { jsPDF } = window.jspdf; const doc=new jsPDF({unit:'pt',format:'a4'});
-        const container=document.createElement('div'); container.style.width='820px'; container.style.padding='20px'; container.style.fontFamily='Inter, Arial, sans-serif';
-        container.innerHTML = `<div style=\"display:flex;align-items:center;gap:12px;margin-bottom:8px\"><img src='${CONFIG.logoUrl}' crossorigin='anonymous' style=\"width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #e5e7eb;\" alt='logo'/><h2 style=\"margin:0\">${CONFIG.orgName} — ${CONFIG.event.title}</h2></div><div style=\"font-size:12px;color:#334155\">Order ${orderId}</div><div style=\"margin:8px 0 12px 0;font-size:12px;color:#334155\"><div><strong>Date:</strong> ${toHuman(CONFIG.event.dateISO)}</div><div><strong>Venue:</strong> ${CONFIG.event.venue}</div><div><strong>Address:</strong> ${CONFIG.event.address}</div><div><strong>Map:</strong> <a href='${CONFIG.event.mapLink}'>${CONFIG.event.mapLink}</a></div></div>`;
-        generated.forEach(t=>{ const row=document.createElement('div'); row.style.display='grid'; row.style.gridTemplateColumns='1fr 110px 110px'; row.style.gap='12px'; row.style.alignItems='center'; row.style.border='1px solid #e2e8f0'; row.style.borderRadius='12px'; row.style.padding='10px 14px'; row.style.marginTop='10px'; row.innerHTML = `<div><div style='font-weight:600'>${t.name}</div><div style='font-size:12px;color:#64748b'>${t.ticket_id}</div></div>`; const img=document.createElement('img'); img.src=t.qr_png; img.style.width='110px'; img.style.height='110px'; img.style.objectFit='contain'; const mapimg=document.createElement('img'); mapimg.src=t.map_qr_png; mapimg.style.width='110px'; mapimg.style.height='110px'; mapimg.style.objectFit='contain'; row.appendChild(img); row.appendChild(mapimg); container.appendChild(row); });
-        document.body.appendChild(container); const canvas = await html2canvas(container); document.body.removeChild(container);
-        const imgData=canvas.toDataURL('image/png'); const pageWidth=doc.internal.pageSize.getWidth(); const ratio=canvas.height/canvas.width; doc.addImage(imgData,'PNG',20,20,pageWidth-40,(pageWidth-40)*ratio); doc.save(`${CONFIG.event.id}_${orderId}_tickets.pdf`);
       };
 
       // Share all (Web Share API + WhatsApp fallback)
@@ -251,7 +332,7 @@
         }
         const waNum = (function() { const raw = qs('#buyerCell').value; const d = raw.replace(/[^0-9]+/g,''); let nsn=d; if(d.startsWith('27')) nsn=d.slice(2); else if(d.startsWith('0')) nsn=d.slice(1); if (nsn.length!==9||!/[678]/.test(nsn[0])) return null; return '27'+nsn; })();
         if (!waNum) { alert('Invalid SA mobile for WhatsApp'); return; }
-        const fallbackMsg = `${text}\n(Your device cannot share files from the browser. Please download PNG/PDF and send via WhatsApp.)`;
+        const fallbackMsg = `${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`;
         window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(fallbackMsg)}`, '_blank');
       };
     }
