@@ -1,354 +1,217 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Checkout — Laudem Dei Chamber Choir</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <title>Checkout — Ticket Confirmation</title>
   <style>
-    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    :root{--bg:#f7f9fc;--card:#fff;--soft:#e2e8f0;--ink:#0b1220;--muted:#667085;--brand:#0ea5e9;}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial}
+    .wrap{max-width:960px;margin:24px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid var(--soft);border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+    .pad{padding:16px}
+    h1,h2{margin:8px 0 12px}
+    .row{display:flex;flex-wrap:wrap;gap:16px}
+    .col{flex:1 1 260px}
+    .muted{color:var(--muted)}
+    .divider{height:1px;background:var(--soft);margin:12px 0}
+    .qrBox{display:grid;place-items:center;padding:12px;border:1px dashed var(--soft);border-radius:12px;background:#fff}
+    .warn{color:#b45309}
+    .ok{color:#166534}
+    .err{color:#991b1b}
+    .mini{font-size:12px}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#075985;font-weight:700}
+    .grid2{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:860px){.grid2{grid-template-columns:2fr 1fr}}
   </style>
 </head>
-<body class="bg-white text-slate-800">
-  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
-    <nav class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-      <a href="index.html" class="text-sky-700 hover:underline">← Back</a>
-      <div class="ml-auto text-sm text-slate-600">Test checkout</div>
-    </nav>
-  </header>
+<body>
+  <div class="wrap">
+    <header class="pad" style="display:flex;align-items:center;justify-content:space-between">
+      <h1>Order Confirmation</h1>
+      <span class="badge">Laudem Dei • Tickets</span>
+    </header>
 
-  <main class="max-w-3xl mx-auto px-4 py-6">
-    <div class="flex items-center gap-3">
-      <img id="brandLogo" alt="Logo" class="h-12 w-12 rounded-xl object-contain bg-white ring-1 ring-slate-200 p-1" />
-      <div>
-        <h1 id="eventTitle" class="text-xl font-bold"></h1>
-        <div id="eventMeta" class="text-sm text-slate-600"></div>
-      </div>
-    </div>
+    <main class="grid2">
+      <section class="card pad">
+        <h2>Order Summary</h2>
+        <!--
+          If your existing checkout already renders an order summary element,
+          keep its id and data-* attributes so the script can read values from it.
+          The script also supports window.checkout = { buyer_name, buyer_email, buyer_cell, concert_info, order_number }.
+        -->
+        <div id="orderSummary"
+             data-buyer-name=""
+             data-buyer-email=""
+             data-buyer-cell=""
+             data-concert-info=""
+             data-order-number="">
+          <!-- Replace this block with your existing order details UI -->
+          <div class="row">
+            <div class="col">
+              <div><strong>Buyer</strong></div>
+              <div class="mini muted">Name / Email / Cell will appear from checkout</div>
+            </div>
+            <div class="col">
+              <div><strong>Concert</strong></div>
+              <div class="mini muted">Concert info from checkout</div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div><strong>Order Number</strong>: <span id="orderNumText" class="muted">—</span></div>
+        </div>
 
-    <form id="mockForm" class="mt-6 grid gap-3">
-      <div>
-        <label class="text-sm text-slate-600">Buyer name</label>
-        <input id="buyerName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Thandi Ndlovu" required />
-      </div>
-      <div>
-        <label class="text-sm text-slate-600">Email for e-tickets</label>
-        <input id="buyerEmail" type="email" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="you@example.com" required />
-      </div>
-      <div>
-        <label class="text-sm text-slate-600">Cell number <span class="text-slate-400">(South Africa only)</span></label>
-        <input id="buyerCell" inputmode="tel" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="(+27) 82 123 4567" required />
-        <p class="text-[11px] text-slate-500 mt-1">SA mobiles: must start with 06/07/08. Auto-formats on blur.</p>
-      </div>
+        <div class="divider"></div>
+        <h3>Ticket QR Code</h3>
+        <p class="mini muted">This QR encodes exactly these fields: <code>buyer_name</code>, <code>buyer_email</code>, <code>buyer_cell</code>, <code>concert_info</code>, <code>order_number</code>.</p>
+        <div id="ticketQR" class="qrBox">
+          <noscript class="err">Enable JavaScript to view your QR code.</noscript>
+        </div>
+        <p id="qrMsg" class="mini muted" style="text-align:center;margin-top:8px"></p>
+        <p id="sheetMsg" class="mini muted" style="text-align:center;margin-top:6px"></p>
+      </section>
 
-      <div>
-        <h2 class="font-semibold mt-2">Adjust quantities</h2>
-        <div id="adjustWrap" class="mt-2 space-y-3"></div>
-      </div>
+      <aside class="card pad">
+        <h3>What next?</h3>
+        <ol class="mini">
+          <li>Screenshot or save the QR to your phone.</li>
+          <li>Bring it to the venue. The usher will scan it to check you in.</li>
+        </ol>
+        <div class="divider"></div>
+        <h4>Debug</h4>
+        <button id="showPayloadBtn">Show QR payload</button>
+        <pre id="payloadOut" class="mini" style="white-space:pre-wrap"></pre>
+      </aside>
+    </main>
+  </div>
 
-      <div id="summary" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
-
-      <div class="flex items-center justify-between mt-1">
-        <a href="index.html" class="px-4 py-2 rounded-xl border">Back</a>
-        <button id="confirmBtn" type="submit" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Confirm Payment</button>
-      </div>
-    </form>
-
-    <section id="successArea" class="hidden mt-6">
-      <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-        <p class="font-semibold">Payment Successful (Simulated)</p>
-        <p class="text-sm">Order <span id="orderId"></span> — Your tickets are below with QR codes.</p>
-      </div>
-      <div id="ticketList" class="mt-3 text-sm"></div>
-      <div class="h-3"></div>
-      <div class="flex flex-col sm:flex-row gap-2 justify-end">
-        <button id="icsBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Add to Calendar (.ics)</button>
-        <a id="gcalBtn" target="_blank" rel="noopener" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Add to Google Calendar</a>
-        <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-700 text-white font-semibold hover:opacity-90">Download PNG Tickets</button>
-        <button id="shareAllBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Share all via WhatsApp</button>
-        <a href="index.html" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 text-center">Close</a>
-      </div>
-      <div class="h-4"></div>
-    </section>
-  </main>
+  <!-- QR libraries: pick one (A recommended) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script> -->
 
   <script>
-    // ===== Storage/Config =====
-    const STORAGE_KEYS = { CONFIG: 'choir_config_override', CART: 'choir_cart' };
-    function loadConfig(){
-      const def = {
-        orgName: "Laudem Dei Chamber Choir",
-        logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
-        event: {
-          id:"choir-2025-spring-concert",
-          title:"Spring Serenade Concert",
-          subtitle:"An evening of choral gems",
-          dateISO:"2025-10-11T18:30:00+02:00",
-          doorsISO:"2025-10-11T18:00:00+02:00",
-          venue:"St. Stithians Chapel",
-          address:"40 Peter Place, Lyme Park, Sandton, 2191",
-          mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
-          heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert",
-          heroAlt:"Choir on stage"
-        },
-        tickets: [
-          { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 },
-          { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 },
-          { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 }
-        ]
-      };
-      try {
-        const s=localStorage.getItem(STORAGE_KEYS.CONFIG);
-        if (s){
-          const o=JSON.parse(s);
-          Object.assign(def, o);
-          if (o.event) Object.assign(def.event, o.event);
-          if (o.tickets) def.tickets=o.tickets;
-        }
-      } catch(_){}
-      return def;
+  // ===== Google Sheet endpoint (replace with your Apps Script Web App URL) =====
+  const SHEET_ENDPOINT = "REPLACE_WITH_YOUR_WEB_APP_URL"; // e.g. https://script.google.com/macros/s/AKfyc.../exec
+  const SHEET_SECRET   = "optional-shared-secret";        // optional: set in Apps Script and here
+
+  // ----- Helpers -----
+  const REQUIRED = ['buyer_name','buyer_email','buyer_cell','concert_info','order_number'];
+  const $ = (id)=>document.getElementById(id);
+  function qp(name){ try{ return new URLSearchParams(location.search).get(name)||''; }catch{ return ''; } }
+
+  function readFromDataAttrs(){
+    const el = document.getElementById('orderSummary'); if(!el) return {};
+    return {
+      buyer_name:   el.dataset.buyerName   || '',
+      buyer_email:  el.dataset.buyerEmail  || '',
+      buyer_cell:   el.dataset.buyerCell   || '',
+      concert_info: el.dataset.concertInfo || '',
+      order_number: el.dataset.orderNumber || ''
+    };
+  }
+
+  function readFromQuery(){
+    return {
+      buyer_name:   qp('buyer_name')   || qp('name'),
+      buyer_email:  qp('buyer_email')  || qp('email'),
+      buyer_cell:   qp('buyer_cell')   || qp('cell') || qp('phone'),
+      concert_info: qp('concert_info') || qp('concert'),
+      order_number: qp('order_number') || qp('order_no') || qp('order') || qp('tkt')
+    };
+  }
+
+  function firstNonEmpty(...objs){
+    const out = {}; for(const o of objs){ for(const [k,v] of Object.entries(o||{})){ if(!out[k] && v){ out[k]=v; } } }
+    return out;
+  }
+
+  function validatePayload(p){
+    const missing = REQUIRED.filter(k=>!p[k] || String(p[k]).trim()==='');
+    return { ok: missing.length===0, missing };
+  }
+
+  function renderQR(text){
+    const el = $('ticketQR'); el.innerHTML = '';
+    if(window.QRCode){
+      new QRCode(el, { text, width:256, height:256, correctLevel: QRCode.CorrectLevel.M });
+    } else if (window.QRCode && window.QRCode.toCanvas){
+      const canvas = document.createElement('canvas'); el.appendChild(canvas);
+      window.QRCode.toCanvas(canvas, text, { width:256, errorCorrectionLevel:'M' }, (err)=>{ if(err) console.error(err); });
+    } else {
+      el.textContent = 'QR library not found';
     }
-    const CONFIG = loadConfig();
+  }
 
-    // Load cart
-    let CART = { items: [], savedAt: 0 };
-    try { const s = localStorage.getItem(STORAGE_KEYS.CART); if (s) CART = JSON.parse(s); } catch(_){}
-    if (!CART.items || !CART.items.length) { window.location.replace('index.html'); }
+  function buildPayload(){
+    // Priority: window.checkout -> data-* -> query params
+    const fromGlobal = (window.checkout && typeof window.checkout==='object') ? window.checkout : {};
+    const attrs = readFromDataAttrs();
+    const query = readFromQuery();
+    const payload = firstNonEmpty(fromGlobal, attrs, query);
+    return {
+      buyer_name:   payload.buyer_name   || '',
+      buyer_email:  payload.buyer_email  || '',
+      buyer_cell:   payload.buyer_cell   || '',
+      concert_info: payload.concert_info || '',
+      order_number: payload.order_number || ''
+    };
+  }
 
-    // ===== Utils =====
-    const ZAR = new Intl.NumberFormat('en-ZA', { style:'currency', currency:'ZAR', maximumFractionDigits:0 });
-    const fmt = (cents) => ZAR.format(cents/100);
-    const qs = (s,r) => (r||document).querySelector(s);
-    const qsa = (s,r) => Array.from((r||document).querySelectorAll(s));
-    const toHuman = (iso) => new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
+  function showStatus(msg, cls='muted'){ const p=$('qrMsg'); p.className = 'mini '+cls; p.textContent = msg; }
+  function showSheetStatus(msg, cls='muted'){ const p=$('sheetMsg'); if(!p) return; p.className = 'mini '+cls; p.textContent = msg; }
 
-    // SA helpers
-    function saDigits(s){ return (s||'').replace(/[^0-9]+/g,''); }
-    function saNormalizeNSN(raw){ const d=saDigits(raw); if (!d) return null; let nsn=d; if (d.startsWith('27')) nsn=d.slice(2); else if (d.startsWith('0')) nsn=d.slice(1); if (nsn.length!==9||!/[678]/.test(nsn[0])) return null; return nsn; }
-    function saFormatInternational(raw){ const nsn = saNormalizeNSN(raw); if (!nsn) return null; return '(+27) ' + nsn.slice(0,2) + ' ' + nsn.slice(2,5) + ' ' + nsn.slice(5); }
-    function saNumberForWhatsApp(raw){ const d=saDigits(raw); let nsn=d; if (d.startsWith('27')) nsn=d.slice(2); else if (d.startsWith('0')) nsn=d.slice(1); if (nsn.length!==9||!/[678]/.test(nsn[0])) return null; return '27'+nsn; }
-
-    // Header
-    function paintHeader(){
-      qs('#brandLogo').src = CONFIG.logoUrl; qs('#brandLogo').setAttribute('crossorigin','anonymous');
-      qs('#eventTitle').textContent = CONFIG.event.title;
-      qs('#eventMeta').textContent = `${toHuman(CONFIG.event.dateISO)} • ${CONFIG.event.venue}`;
+  async function sendToSheet(payload){
+    if(!SHEET_ENDPOINT || /REPLACE_WITH_YOUR_WEB_APP_URL/.test(SHEET_ENDPOINT)){
+      showSheetStatus('Sheet logging disabled (no endpoint).', 'muted');
+      return { ok:false, reason:'no-endpoint' };
     }
-
-    // Adjustable quantities
-    function paintAdjust(){
-      const wrap = qs('#adjustWrap'); wrap.innerHTML='';
-      CART.items.forEach((it, idx)=>{
-        const t = CONFIG.tickets.find(x=>x.code===it.code);
-        if (!t) return;
-        const max = t.limit || 99;
-        const row = document.createElement('div');
-        row.className = 'rounded-xl border border-slate-200 p-3';
-        row.innerHTML = `
-          <div class='flex items-center justify-between'>
-            <div class='font-medium text-sm'>${t.name}</div>
-            <div class='text-sm text-slate-600'>${fmt(t.price)}</div>
-          </div>
-          <div class='mt-2 grid grid-cols-[1fr,56px] gap-2 items-center'>
-            <input type='range' min='0' max='${max}' value='${it.qty}' step='1' class='w-full' data-idx='${idx}' />
-            <input type='number' min='0' max='${max}' value='${it.qty}' class='w-full border rounded-lg px-2 py-1 text-center text-sm' data-idx='${idx}' />
-          </div>
-          <div class='text-xs text-slate-500 mt-1'>You can buy up to ${max} for this ticket type.</div>`;
-        wrap.appendChild(row);
+    const body = {
+      ...payload,
+      ts: new Date().toISOString(),
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || '',
+      secret: SHEET_SECRET || ''
+    };
+    try{
+      const res = await fetch(SHEET_ENDPOINT, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
       });
-      wrap.querySelectorAll("input[type='range']").forEach(sl=>{
-        sl.addEventListener('input', e=>{
-          const idx=+e.target.dataset.idx; const t = CONFIG.tickets.find(x=>x.code===CART.items[idx].code);
-          let val=+e.target.value||0; val=Math.max(0, Math.min(val, (t&&t.limit)||99));
-          CART.items[idx].qty = val; const twin = wrap.querySelector(`input[type='number'][data-idx='${idx}']`); if (twin) twin.value = val; paintSummary();
-        });
-      });
-      wrap.querySelectorAll("input[type='number']").forEach(nb=>{
-        nb.addEventListener('input', e=>{
-          const idx=+e.target.dataset.idx; const t = CONFIG.tickets.find(x=>x.code===CART.items[idx].code);
-          let val=parseInt(e.target.value||'0',10); if (isNaN(val)) val=0; val=Math.max(0, Math.min(val, (t&&t.limit)||99));
-          CART.items[idx].qty = val; const twin = wrap.querySelector(`input[type='range'][data-idx='${idx}']`); if (twin) twin.value = val; paintSummary();
-        });
-      });
-    }
-
-    function totalCents(){ return CART.items.reduce((acc,it)=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); return acc + (t?t.price*it.qty:0); },0); }
-    function paintSummary(){
-      CART.items = CART.items.filter(it=>it.qty>0);
-      const sum = qs('#summary');
-      const lines = CART.items.map(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); return `<div class=\"flex justify-between\"><span>${t.name} × ${it.qty}</span><span>${fmt(t.price*it.qty)}</span></div>`; }).join('');
-      const total = totalCents();
-      sum.innerHTML = (lines || '<div class="text-slate-500">No tickets selected.</div>') + '<hr class="my-2"/>' + `<div class='flex justify-between font-semibold'><span>Total</span><span>${fmt(total)}</span></div>`;
-      qs('#confirmBtn').disabled = !(total>0);
-      // Persist live cart edits back to storage
-      localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(CART));
-    }
-
-    // Confirm & generate tickets
-    function randomId(prefix){ return (prefix||'ord_') + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
-    function onConfirm(e){
-      e.preventDefault();
-      const name  = qs('#buyerName').value.trim();
-      const email = qs('#buyerEmail').value.trim();
-      let cellRaw = qs('#buyerCell').value.trim();
-      const cellFmt = saFormatInternational(cellRaw);
-      if(!name){ alert('Please enter your full name.'); return; }
-      if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Please enter a valid email address.'); return; }
-      if(!cellFmt){ alert('Please enter a South African mobile like (+27) 82 123 4567'); return; }
-      qs('#buyerCell').value = cellFmt;
-
-      const orderId = randomId('order_');
-      const list = qs('#ticketList'); list.innerHTML='';
-      const generated = [];
-      CART.items.forEach(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); for(let i=1;i<=it.qty;i++){
-        const tkt=randomId('TKT-');
-        const row=document.createElement('div');
-        row.className='grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
-        row.dataset.ticketId = tkt;
-        row.innerHTML = `<div>
-            <div class='flex items-center gap-2'>
-              <img src='${CONFIG.logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
-              <div class='font-medium'>${t.name}</div>
-            </div>
-            <div class='text-xs text-slate-500'>${tkt}</div>
-            <div class='text-xs'>${fmt(t.price)}</div>
-            <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.dateISO)} • ${CONFIG.event.venue}</div>
-            <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
-            <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${name} • ${cellFmt}</div>
-          </div>
-          <div id='qr_${tkt}' class='justify-self-end'></div>`;
-        list.appendChild(row);
-        const qrDiv = row.querySelector('#qr_'+tkt);
-        const payload = JSON.stringify({ order: orderId, ticket: tkt, event: CONFIG.event.id, title: CONFIG.event.title, dateISO: CONFIG.event.dateISO, venue: CONFIG.event.venue, address: CONFIG.event.address, name, email, cell: cellFmt });
-        new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-        setTimeout(()=>{ 
-          const i1 = qrDiv.querySelector('img')||qrDiv.querySelector('canvas'); 
-          const d1 = i1 && (i1.tagName==='IMG'? i1.src : i1.toDataURL('image/png')); 
-          generated.push({ name:t.name, ticket_id:tkt, price_cents:t.price, qr_png:d1 }); 
-        }, 40);
-      }});
-
-      qs('#orderId').textContent = orderId; 
-      qs('#mockForm').classList.add('hidden'); 
-      qs('#successArea').classList.remove('hidden');
-
-      // ---- Add-to-Calendar wiring ----
-
-      // Helper: JS Date -> ICS UTC YYYYMMDDTHHMMSSZ
-      function icsDateUTC(d) {
-        return new Date(d).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const ok = res.ok;
+      let data = null; try{ data = await res.json(); }catch{ /* ignore */ }
+      if(ok && (data?.ok !== false)){
+        showSheetStatus('Saved to Google Sheet ✓', 'ok');
+        return { ok:true };
       }
-
-      // Times
-      const start = new Date(CONFIG.event.dateISO);           // has timezone offset in ISO
-      const durationMs = 2 * 60 * 60 * 1000;                  // default 2h
-      const end   = new Date(start.getTime() + durationMs);
-
-      // Event details
-      const summary = `${CONFIG.orgName} — ${CONFIG.event.title}`;
-      const location = `${CONFIG.event.venue}, ${CONFIG.event.address}`;
-      const description =
-        `Doors: ${
-          new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'})
-            .format(new Date(CONFIG.event.doorsISO))
-        }\nMap: ${CONFIG.event.mapLink}\nOrder: ${orderId}`;
-
-      // Build ICS text
-      const ics =
-`BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Laudem Dei//Tickets//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-BEGIN:VEVENT
-UID:${orderId}@laudemdei.tickets
-DTSTAMP:${icsDateUTC(Date.now())}
-DTSTART:${icsDateUTC(start)}
-DTEND:${icsDateUTC(end)}
-SUMMARY:${summary.replace(/\n/g,' ')}
-LOCATION:${location.replace(/\n/g,' ')}
-DESCRIPTION:${description.replace(/\n/g,' ')}
-END:VEVENT
-END:VCALENDAR`;
-
-      // .ics download
-      const icsBtn = qs('#icsBtn');
-      if (icsBtn) {
-        icsBtn.onclick = () => {
-          const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${CONFIG.event.id}_${orderId}.ics`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        };
-      }
-
-      // Google Calendar link (UTC range)
-      const gcalBtn = qs('#gcalBtn');
-      if (gcalBtn) {
-        const gTitle   = encodeURIComponent(summary);
-        const gDetails = encodeURIComponent(description);
-        const gLoc     = encodeURIComponent(location);
-        const gDates   = `${icsDateUTC(start)}/${icsDateUTC(end)}`;
-        gcalBtn.href   = `https://www.google.com/calendar/render?action=TEMPLATE&text=${gTitle}&dates=${gDates}&location=${gLoc}&details=${gDetails}`;
-      }
-
-      // PNG per ticket
-      qs('#pngBtn').onclick = async function(){
-        const rows = qsa('#ticketList > div'); if (!rows.length) return;
-        for (const row of rows) {
-          const prev = { backgroundColor: row.style.backgroundColor, borderRadius: row.style.borderRadius, border: row.style.border, boxShadow: row.style.boxShadow, overflow: row.style.overflow, padding: row.style.padding };
-          row.style.backgroundColor = '#ffffff'; row.style.borderRadius = '16px'; row.style.border = '2px solid #e2e8f0'; row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)'; row.style.overflow = 'hidden'; row.style.padding = row.style.padding || '12px 16px';
-          const canvas = await html2canvas(row, { backgroundColor: null, scale: 2 });
-          row.style.backgroundColor = prev.backgroundColor; row.style.borderRadius = prev.borderRadius; row.style.border = prev.border; row.style.boxShadow = prev.boxShadow; row.style.overflow = prev.overflow; row.style.padding = prev.padding;
-          const dataUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a'); const tid = row.dataset.ticketId || 'ticket'; a.href = dataUrl; a.download = `${CONFIG.event.id}_${tid}.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a); await new Promise(r=>setTimeout(r,120));
-        }
-      };
-
-      // Share all (Web Share API + WhatsApp fallback)
-      qs('#shareAllBtn').onclick = async function(){
-        const rows = qsa('#ticketList > div'); if (!rows.length) { alert('No tickets to share.'); return; }
-        const files = [];
-        for (const row of rows) {
-          const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true, allowTaint:false });
-          const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
-          if (blob) files.push(new File([blob], `${CONFIG.event.id}_${row.dataset.ticketId}.png`, { type:'image/png' }));
-          if (files.length >= 10) break;
-        }
-        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId}\nTickets attached (${files.length}).`;
-        if (files.length && navigator.canShare && navigator.canShare({ files })) {
-          await navigator.share({ files, title: `${CONFIG.event.title} tickets`, text });
-          return;
-        }
-        const waNum = (function() { const raw = qs('#buyerCell').value; const d = raw.replace(/[^0-9]+/g,''); let nsn=d; if(d.startsWith('27')) nsn=d.slice(2); else if(d.startsWith('0')) nsn=d.slice(1); if (nsn.length!==9||!/[678]/.test(nsn[0])) return null; return '27'+nsn; })();
-        if (!waNum) { alert('Invalid SA mobile for WhatsApp'); return; }
-        const fallbackMsg = `${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`;
-        window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(fallbackMsg)}`, '_blank');
-      };
+      showSheetStatus('Could not save to Sheet (server said no).', 'warn');
+      return { ok:false };
+    } catch(err){
+      showSheetStatus('Offline or endpoint unreachable. Will retry on next load.', 'warn');
+      return { ok:false, error: String(err) };
     }
+  }
 
-    function boot(){
-      paintHeader();
-      paintAdjust();
-      paintSummary();
-      const cellEl = qs('#buyerCell');
-      const run = ()=>{ const f = saFormatInternational(cellEl.value); if (f) { cellEl.setCustomValidity(''); cellEl.value = f; } else { cellEl.setCustomValidity('Enter a South African mobile like (+27) 82 123 4567'); } };
-      cellEl.addEventListener('blur', run);
-      cellEl.addEventListener('change', run);
-      cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
-      qs('#mockForm').addEventListener('submit', onConfirm);
+  async function generate(){
+    const payload = buildPayload();
+    const v = validatePayload(payload);
+    if(!v.ok){
+      showStatus('Missing: '+v.missing.join(', '), 'warn');
+    } else {
+      showStatus('QR ready. Save or screenshot this code.', 'ok');
     }
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
+    const text = JSON.stringify(payload);
+    renderQR(text);
+    const on = document.getElementById('orderNumText'); if(on) on.textContent = payload.order_number || '—';
+
+    // Fire-and-forget: write to Google Sheet once payload seems valid
+    if(v.ok){ await sendToSheet(payload); }
+    return payload;
+  }
+
+  // Bootstrap
+  (async()=>{ await generate(); })();
+  $('showPayloadBtn').onclick = ()=>{ $('payloadOut').textContent = JSON.stringify(buildPayload(), null, 2); };
   </script>
 </body>
 </html>
