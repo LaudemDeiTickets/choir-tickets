@@ -59,7 +59,7 @@
         </div>
       </div>
       <p id="yocoHint" class="hidden mt-2 text-xs text-slate-500 text-right">
-        A Yoco window has opened. After completing payment, return here and click “Confirm Payment (Test)” to generate tickets.
+        A Yoco window has opened. After completing payment, return here and click “I’ve paid – Generate Tickets”.
       </p>
     </form>
 
@@ -184,6 +184,22 @@
       localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(CART));
     }
 
+    // === Confirm button label helpers ===
+    function setConfirmLabelPaidMode(){
+      const btn = qs('#confirmBtn');
+      if (!btn) return;
+      btn.textContent = "I’ve paid – Generate Tickets";
+      btn.classList.remove('bg-sky-600','hover:bg-sky-700');
+      btn.classList.add('bg-emerald-600','hover:bg-emerald-700');
+    }
+    function resetConfirmLabel(){
+      const btn = qs('#confirmBtn');
+      if (!btn) return;
+      btn.textContent = "Confirm Payment (Test)";
+      btn.classList.remove('bg-emerald-600','hover:bg-emerald-700');
+      btn.classList.add('bg-sky-600','hover:bg-sky-700');
+    }
+
     // Pay with Yoco (opens your link, stores a pending order)
     function onPayYoco(){
       const name  = qs('#buyerName').value.trim();
@@ -207,6 +223,10 @@
       try { localStorage.setItem('choir_pending_order', JSON.stringify(pending)); } catch(_){}
 
       const hint = qs('#yocoHint'); if (hint) hint.classList.remove('hidden');
+
+      // Flip confirm button to green "I’ve paid..."
+      setConfirmLabelPaidMode();
+
       const yocoURL = `https://pay.yoco.com/laudem-dei?ref=${encodeURIComponent(orderId)}`;
       window.open(yocoURL, '_blank');
     }
@@ -331,6 +351,10 @@ END:VCALENDAR`;
         const fallbackMsg = `${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`;
         window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(fallbackMsg)}`, '_blank');
       };
+
+      // Clear pending order so button resets next time
+      try { localStorage.removeItem('choir_pending_order'); } catch(_) {}
+      resetConfirmLabel();
     }
 
     function boot(){
@@ -340,6 +364,18 @@ END:VCALENDAR`;
       cellEl.addEventListener('blur', run); cellEl.addEventListener('change', run); cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
       qs('#mockForm').addEventListener('submit', onConfirm);
       const yb = qs('#yocoBtn'); if (yb) yb.addEventListener('click', onPayYoco);
+
+      // Persisted paid-mode if a pending Yoco order exists
+      try {
+        const pendingRaw = localStorage.getItem('choir_pending_order');
+        if (pendingRaw) {
+          const pending = JSON.parse(pendingRaw);
+          if (pending && pending.orderId) {
+            setConfirmLabelPaidMode();
+            const hint = qs('#yocoHint'); if (hint) hint.classList.remove('hidden');
+          }
+        }
+      } catch(_) {}
     }
     document.addEventListener('DOMContentLoaded', boot, { once:true });
   </script>
