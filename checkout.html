@@ -31,9 +31,15 @@
     </div>
 
     <form id="mockForm" class="mt-6 grid gap-3">
-      <div>
-        <label class="text-sm text-slate-600">Buyer name</label>
-        <input id="buyerName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Thandi Ndlovu" required />
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm text-slate-600">First name</label>
+          <input id="firstName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Thandi" required />
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">Last name</label>
+          <input id="lastName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Ndlovu" required />
+        </div>
       </div>
       <div>
         <label class="text-sm text-slate-600">Email for e-tickets</label>
@@ -205,13 +211,15 @@
 
     // ====== Yoco Checkout (Option A via serverless) ======
     async function onPayYoco(){
-      const name  = qs('#buyerName').value.trim();
-      const email = qs('#buyerEmail').value.trim();
-      const cellRaw = qs('#buyerCell').value.trim();
-      const cellFmt = saFormatInternational(cellRaw);
-      const err = qs('#errText');
+      const firstName = qs('#firstName').value.trim();
+      const lastName  = qs('#lastName').value.trim();
+      const email     = qs('#buyerEmail').value.trim();
+      const cellRaw   = qs('#buyerCell').value.trim();
+      const cellFmt   = saFormatInternational(cellRaw);
+      const err       = qs('#errText');
 
-      if(!name){ alert('Please enter your full name.'); return; }
+      if(!firstName){ alert('Please enter your first name.'); return; }
+      if(!lastName){ alert('Please enter your last name.'); return; }
       if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Please enter a valid email address.'); return; }
       if(!cellFmt){ alert('Please enter a South African mobile like (+27) 82 123 4567'); return; }
       qs('#buyerCell').value = cellFmt;
@@ -222,12 +230,9 @@
       const orderId = ('ord_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4)).toUpperCase();
 
       // Persist pending order locally so we can complete after redirect back
-      const [firstName, ...rest] = name.split(' ');
-      const lastName = (rest.join(' ') || '').trim();
-
       const pending = {
         orderId,
-        buyer: { firstName: firstName || name, lastName, email, cell: cellFmt },
+        buyer: { firstName, lastName, email, cell: cellFmt },
         items: CART.items.slice(),
         total_cents: total,
         savedAt: Date.now()
@@ -245,11 +250,11 @@
           headers: { 'Content-Type':'application/json' },
           body: JSON.stringify({
             amountInCents: total,
-            firstName: pending.buyer.firstName,
-            lastName: pending.buyer.lastName,
-            email: pending.buyer.email,
+            firstName,
+            lastName,
+            email,
             items: pending.items,
-            orderId: pending.orderId
+            orderId
           })
         });
         if (!resp.ok) {
@@ -271,19 +276,21 @@
     function randomId(prefix){ return (prefix||'ord_') + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
     function onConfirm(e){
       e.preventDefault();
-      const name  = qs('#buyerName').value.trim();
-      const email = qs('#buyerEmail').value.trim();
-      let cellRaw = qs('#buyerCell').value.trim();
-      const cellFmt = saFormatInternational(cellRaw);
-      if(!name){ alert('Please enter your full name.'); return; }
+      const firstName = qs('#firstName').value.trim();
+      const lastName  = qs('#lastName').value.trim();
+      const email     = qs('#buyerEmail').value.trim();
+      const cellRaw   = qs('#buyerCell').value.trim();
+      const cellFmt   = saFormatInternational(cellRaw);
+      if(!firstName){ alert('Please enter your first name.'); return; }
+      if(!lastName){ alert('Please enter your last name.'); return; }
       if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Please enter a valid email address.'); return; }
       if(!cellFmt){ alert('Please enter a South African mobile like (+27) 82 123 4567'); return; }
       qs('#buyerCell').value = cellFmt;
 
+      const buyerFull = [firstName, lastName].filter(Boolean).join(' ');
       const orderId = (function(){ const p = localStorage.getItem('choir_pending_order'); if (p) { try { const j=JSON.parse(p); if (j && j.orderId) return j.orderId; } catch(_){} } return randomId('order_'); })();
 
       const list = qs('#ticketList'); list.innerHTML='';
-      const generated = [];
       CART.items.forEach(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); for(let i=1;i<=it.qty;i++){
         const tkt=randomId('TKT-');
         const row=document.createElement('div');
@@ -298,18 +305,22 @@
             <div class='text-xs'>${fmt(t.price)}</div>
             <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.dateISO)} • ${CONFIG.event.venue}</div>
             <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
-            <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${name} • ${cellFmt}</div>
+            <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${buyerFull} • ${cellFmt}</div>
           </div>
           <div id='qr_${tkt}' class='justify-self-end'></div>`;
         list.appendChild(row);
         const qrDiv = row.querySelector('#qr_'+tkt);
-        const payload = JSON.stringify({ order: orderId, ticket: tkt, event: CONFIG.event.id, title: CONFIG.event.title, dateISO: CONFIG.event.dateISO, venue: CONFIG.event.venue, address: CONFIG.event.address, name, email, cell: cellFmt });
+        const payload = JSON.stringify({
+          order: orderId,
+          ticket: tkt,
+          event: CONFIG.event.id,
+          title: CONFIG.event.title,
+          dateISO: CONFIG.event.dateISO,
+          venue: CONFIG.event.venue,
+          address: CONFIG.event.address,
+          firstName, lastName, email, cell: cellFmt
+        });
         new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-        setTimeout(()=>{ 
-          const i1 = qrDiv.querySelector('img')||qrDiv.querySelector('canvas'); 
-          const d1 = i1 && (i1.tagName==='IMG'? i1.src : i1.toDataURL('image/png')); 
-          generated.push({ name:t.name, ticket_id:tkt, price_cents:t.price, qr_png:d1 }); 
-        }, 40);
       }});
 
       qs('#orderId').textContent = orderId; 
@@ -396,7 +407,7 @@ END:VCALENDAR`;
 
     function paintHeaderAndSummary(){
       paintHeader(); paintAdjust(); paintSummary();
-      // If pending Yoco order exists, keep the confirm button in paid mode & show hint
+      // If pending Yoco order exists, keep the confirm button in paid mode & show hint; prefill names/email/cell
       try {
         const pendingRaw = localStorage.getItem('choir_pending_order');
         if (pendingRaw) {
@@ -404,11 +415,11 @@ END:VCALENDAR`;
           if (p && p.orderId) {
             setConfirmLabelPaidMode();
             const hint = qs('#yocoHint'); if (hint) hint.classList.remove('hidden');
-            // Pre-fill buyer fields from pending
-            const nameField = qs('#buyerName'), mailField = qs('#buyerEmail'), cellField = qs('#buyerCell');
-            if (nameField) nameField.value = [p.buyer.firstName, p.buyer.lastName].filter(Boolean).join(' ');
-            if (mailField) mailField.value = p.buyer.email || '';
-            if (cellField)  cellField.value = p.buyer.cell || '';
+            const fn = qs('#firstName'), ln = qs('#lastName'), em = qs('#buyerEmail'), ce = qs('#buyerCell');
+            if (fn) fn.value = p.buyer.firstName || '';
+            if (ln) ln.value = p.buyer.lastName  || '';
+            if (em) em.value = p.buyer.email     || '';
+            if (ce) ce.value = p.buyer.cell      || '';
           }
         }
       } catch(_) {}
