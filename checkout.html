@@ -1,449 +1,441 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Checkout — Laudem Dei Chamber Choir</title>
-  <meta name="description" content="Secure checkout for Laudem Dei Chamber Choir. Yoco hosted checkout integrated via serverless." />
+  <meta name="description" content="Checkout for Laudem Dei Chamber Choir tickets." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <style>html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }</style>
+  <style>
+    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  </style>
 </head>
 <body class="bg-white text-slate-800">
-  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
-    <nav class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-      <a href="index.html" class="text-sky-700 hover:underline">← Back</a>
-      <div class="ml-auto text-sm text-slate-600">Checkout</div>
-    </nav>
-  </header>
-
-  <main class="max-w-3xl mx-auto px-4 py-6">
-    <div class="flex items-center gap-3">
-      <img id="brandLogo" alt="Logo" class="h-12 w-12 rounded-xl object-contain bg-white ring-1 ring-slate-200 p-1" />
-      <div>
-        <h1 id="eventTitle" class="text-xl font-bold"></h1>
-        <div id="eventMeta" class="text-sm text-slate-600"></div>
-      </div>
-    </div>
-
-    <form id="mockForm" class="mt-6 grid gap-3">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg" alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white">
         <div>
-          <label class="text-sm text-slate-600">First name</label>
-          <input id="firstName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Thandi" required />
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">Last name</label>
-          <input id="lastName" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="e.g., Ndlovu" required />
+          <h1 class="text-xl font-bold">Laudem Dei Chamber Choir</h1>
+          <p class="text-sm text-slate-500">Secure checkout</p>
         </div>
       </div>
-      <div>
-        <label class="text-sm text-slate-600">Email for e-tickets</label>
-        <input id="buyerEmail" type="email" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="you@example.com" required />
-      </div>
-      <div>
-        <label class="text-sm text-slate-600">Cell number <span class="text-slate-400">(South Africa only)</span></label>
-        <input id="buyerCell" inputmode="tel" class="mt-1 w-full border rounded-lg px-3 py-3 text-base" placeholder="(+27) 82 123 4567" required />
-        <p class="text-[11px] text-slate-500 mt-1">SA mobiles: must start with 06/07/08. Auto-formats on blur.</p>
-      </div>
+      <a href="index.html" class="text-sm underline hover:no-underline">Back to tickets</a>
+    </header>
 
-      <div>
-        <h2 class="font-semibold mt-2">Adjust quantities</h2>
-        <div id="adjustWrap" class="mt-2 space-y-3"></div>
-      </div>
-
-      <div id="summary" class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3"></div>
-
-      <div class="flex items-center justify-between mt-1">
-        <a href="index.html" class="px-4 py-2 rounded-xl border">Back</a>
-        <div class="flex gap-2">
-          <button id="yocoBtn" type="button" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Pay with Yoco</button>
-          <button id="confirmBtn" type="submit" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Confirm Payment (Test)</button>
-        </div>
-      </div>
-      <p id="yocoHint" class="hidden mt-2 text-xs text-slate-500 text-right">
-        A Yoco window has opened. After completing payment, return here and click “I’ve paid – Generate Tickets”.
-      </p>
-      <p id="errText" class="hidden mt-2 text-xs text-red-600"></p>
-    </form>
-
-    <section id="successArea" class="hidden mt-6">
-      <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-        <p class="font-semibold">Payment Successful</p>
-        <p class="text-sm">Order <span id="orderId"></span> — Your tickets are below with QR codes.</p>
-      </div>
-      <div id="ticketList" class="mt-3 text-sm"></div>
-      <div class="h-3"></div>
-      <div class="flex flex-col sm:flex-row gap-2 justify-end">
-        <button id="icsBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Add to Calendar (.ics)</button>
-        <a id="gcalBtn" target="_blank" rel="noopener" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Add to Google Calendar</a>
-        <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-700 text-white font-semibold hover:opacity-90">Download PNG Tickets</button>
-        <button id="shareAllBtn" class="px-5 py-3 rounded-xl border border-slate-300 hover:bg-white">Share all via WhatsApp</button>
-        <a href="index.html" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 text-center">Close</a>
-      </div>
-      <div class="h-4"></div>
+    <!-- Event Summary -->
+    <section class="mt-6 glass rounded-2xl border border-slate-200 p-5">
+      <h2 class="text-lg font-semibold">Spring Serenade Concert</h2>
+      <p class="text-sm text-slate-600">An evening of choral gems</p>
+      <p class="text-sm text-slate-700 mt-1">📍 St. Stithians Chapel — 40 Peter Place, Lyme Park, Sandton, 2191</p>
+      <p class="text-sm text-slate-700">🗓️ Sat, 11 Oct 2025 • 18:30 (doors 18:00)</p>
+      <button id="icsBtn" class="mt-3 px-3 py-2 rounded-lg border hover:bg-white text-sm">Add to Calendar (.ics)</button>
     </section>
-  </main>
+
+    <!-- Error banner -->
+    <div id="errBox" class="hidden mt-4 rounded-xl border border-red-200 bg-red-50 text-red-900 p-3 text-sm"></div>
+
+    <!-- Buyer details + order -->
+    <section class="mt-6 grid md:grid-cols-2 gap-6 items-start">
+      <form id="buyerForm" class="glass rounded-2xl border border-slate-200 p-5 grid gap-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-sm text-slate-600">First name</label>
+            <input id="firstName" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="e.g., Thandi" required>
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">Last name</label>
+            <input id="lastName" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="e.g., Ndlovu" required>
+          </div>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">Email</label>
+          <input id="buyerEmail" type="email" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="you@example.com" required>
+        </div>
+        <div>
+          <label class="text-sm text-slate-600">Cell (South Africa)</label>
+          <input id="buyerCell" inputmode="tel" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="(+27) 82 123 4567" required>
+          <p class="text-[11px] text-slate-500 mt-1">Must be SA mobile (06/07/08). Auto-formats on blur.</p>
+        </div>
+      </form>
+
+      <aside class="glass rounded-2xl border border-slate-200 p-5">
+        <h3 class="text-lg font-semibold">Your order</h3>
+        <div id="orderList" class="mt-3 text-sm text-slate-700 space-y-2"></div>
+        <hr class="my-3">
+        <div class="flex items-center justify-between font-semibold">
+          <span>Total</span>
+          <span id="total">R0</span>
+        </div>
+        <div class="mt-4 grid gap-2">
+          <button id="payBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Pay with Yoco</button>
+          <button id="testBtn" class="px-5 py-3 rounded-xl border hover:bg-white">Test Flow (No Payment)</button>
+          <p class="text-xs text-slate-500">You’ll be redirected to Yoco to complete the payment in live mode.</p>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Success / Ticket rendering -->
+    <section id="successWrap" class="hidden mt-8">
+      <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+        <p class="font-semibold">Payment Successful</p>
+        <p class="text-sm">Order <span id="orderIdOut"></span> — Your tickets are below with QR codes.</p>
+      </div>
+      <div id="ticketsWrap" class="mt-3 text-sm"></div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90">Download PNG Tickets</button>
+        <button id="shareAllBtn" class="px-5 py-3 rounded-xl border hover:bg-white">Share all via WhatsApp</button>
+        <button id="doneBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Done</button>
+      </div>
+    </section>
+  </div>
 
   <script>
-    // ===== Storage/Config =====
-    const STORAGE_KEYS = { CONFIG: 'choir_config_override', CART: 'choir_cart' };
-    function loadConfig(){
-      const def = {
-        orgName: "Laudem Dei Chamber Choir",
-        logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
-        event: {
-          id:"choir-2025-spring-concert",
-          title:"Spring Serenade Concert",
-          subtitle:"An evening of choral gems",
-          dateISO:"2025-10-11T18:30:00+02:00",
-          doorsISO:"2025-10-11T18:00:00+02:00",
-          venue:"St. Stithians Chapel",
-          address:"40 Peter Place, Lyme Park, Sandton, 2191",
-          mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
-          heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert",
-          heroAlt:"Choir on stage"
-        },
-        tickets: [
-          { code:"GEN", name:"General Admission", price:20000, desc:"Unreserved seating", limit:10 },
-          { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 },
-          { code:"VIP", name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 }
-        ]
-      };
-      try { const s=localStorage.getItem(STORAGE_KEYS.CONFIG); if (s){ const o=JSON.parse(s); Object.assign(def,o); if (o.event) Object.assign(def.event,o.event); if (o.tickets) def.tickets=o.tickets; } } catch(_){}
-      return def;
-    }
-    const CONFIG = loadConfig();
+  (function(){
+    'use strict';
 
-    // Load cart
-    let CART = { items: [], savedAt: 0 };
-    try { const s = localStorage.getItem(STORAGE_KEYS.CART); if (s) CART = JSON.parse(s); } catch(_){}
-    if (!CART.items || !CART.items.length) { window.location.replace('index.html'); }
+    // ======= CONFIG =======
+    const CONFIG = {
+      orgName: "Laudem Dei Chamber Choir",
+      logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
+      event: {
+        id: "choir-2025-spring-concert",
+        title: "Spring Serenade Concert",
+        subtitle: "An evening of choral gems",
+        startISO: "2025-10-11T18:30:00+02:00",
+        doorsISO: "2025-10-11T18:00:00+02:00",
+        endISO:   "2025-10-11T20:00:00+02:00",
+        venue: "St. Stithians Chapel",
+        address: "40 Peter Place, Lyme Park, Sandton, 2191"
+      },
+      currency: 'ZAR',
+      // ===== IMPORTANT =====
+      // Set this to your deployed Vercel function URL:
+      // e.g. 'https://laudemdei-api.vercel.app/api/create-checkout'
+      API_URL: 'https://YOUR-VERCEL-APP.vercel.app/api/create-checkout',
+      // Static fallback if API_URL is blank/unset
+      YOCO_PAYMENT_LINK: 'https://pay.yoco.com/laudem-dei',
+      simulateTestFlow: false // set true to test without leaving page
+    };
 
-    // ===== Utils =====
+    // ====== Utilities ======
     const ZAR = new Intl.NumberFormat('en-ZA', { style:'currency', currency:'ZAR', maximumFractionDigits:0 });
-    const fmt = (cents) => ZAR.format(cents/100);
-    const qs = (s,r) => (r||document).querySelector(s);
-    const qsa = (s,r) => Array.from((r||document).querySelectorAll(s));
-    const toHuman = (iso) => new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
-    const parseQuery = () => Object.fromEntries(new URLSearchParams(location.search).entries());
+    const fmt = (cents) => ZAR.format((cents||0)/100);
+    const qs = (s,r)=> (r||document).querySelector(s);
+    const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
+    const toHuman = (iso)=> new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
 
-    // SA helpers
+    // Cart comes from localStorage (index.html wrote it), else default example
+    const DEFAULT_TICKETS = [{code:'GEN', name:'General Admission', qty:1, priceCents:20000}];
+    function readCart(){
+      try{
+        const s = localStorage.getItem('ld_cart');
+        const arr = JSON.parse(s||'[]');
+        if (Array.isArray(arr) && arr.length) return arr;
+      }catch(_){}
+      return DEFAULT_TICKETS;
+    }
+    function totals(items){
+      let total=0;
+      for (const it of items) total += (it.priceCents||0) * (it.qty||0);
+      return { total };
+    }
+
+    // SA-only cell helpers
     function saDigits(s){ return (s||'').replace(/[^0-9]+/g,''); }
-    function saNormalizeNSN(raw){ const d=saDigits(raw); if (!d) return null; let nsn=d; if (d.startsWith('27')) nsn=d.slice(2); else if (d.startsWith('0')) nsn=d.slice(1); if (nsn.length!==9||!/[678]/.test(nsn[0])) return null; return nsn; }
-    function saFormatInternational(raw){ const nsn = saNormalizeNSN(raw); if (!nsn) return null; return '(+27) ' + nsn.slice(0,2) + ' ' + nsn.slice(2,5) + ' ' + nsn.slice(5); }
-    function saNumberForWhatsApp(raw){ const d=saDigits(raw); let nsn=d; if (d.startsWith('27')) nsn=d.slice(2); else if (d.startsWith('0')) nsn=d.slice(1); if (nsn.length!==9||!/[678]/.test(nsn[0])) return null; return '27'+nsn; }
-
-    // Header
-    function paintHeader(){
-      qs('#brandLogo').src = CONFIG.logoUrl; qs('#brandLogo').setAttribute('crossorigin','anonymous');
-      qs('#eventTitle').textContent = CONFIG.event.title;
-      qs('#eventMeta').textContent = `${toHuman(CONFIG.event.dateISO)} • ${CONFIG.event.venue}`;
+    function saNormalizeNSN(raw){
+      const d = saDigits(raw); if (!d) return null;
+      let nsn = d;
+      if (d.startsWith('27')) nsn = d.slice(2);
+      else if (d.startsWith('0')) nsn = d.slice(1);
+      if (nsn.length !== 9) return null;
+      if (!/[678]/.test(nsn[0])) return null;
+      return nsn;
+    }
+    function saFormatInternational(raw){
+      const nsn = saNormalizeNSN(raw);
+      if (!nsn) return null;
+      return '(+27) ' + nsn.slice(0,2) + ' ' + nsn.slice(2,5) + ' ' + nsn.slice(5);
+    }
+    function saNumberForWhatsApp(raw){
+      const d = saDigits(raw); if (!d) return null;
+      let nsn = d;
+      if (d.startsWith('27')) nsn = d.slice(2);
+      else if (d.startsWith('0')) nsn = d.slice(1);
+      if (nsn.length !== 9 || !/[678]/.test(nsn[0])) return null;
+      return '27' + nsn;
     }
 
-    // Adjustable quantities
-    function paintAdjust(){
-      const wrap = qs('#adjustWrap'); wrap.innerHTML='';
-      CART.items.forEach((it, idx)=>{
-        const t = CONFIG.tickets.find(x=>x.code===it.code);
-        if (!t) return;
-        const max = t.limit || 99;
+    // Calendar (.ics)
+    function downloadICS(){
+      const ev = CONFIG.event;
+      function toICSDate(iso){
+        const d = new Date(iso);
+        // Convert to UTC format YYYYMMDDTHHMMSSZ
+        const pad = (n)=> String(n).padStart(2,'0');
+        return d.getUTCFullYear()
+          + pad(d.getUTCMonth()+1)
+          + pad(d.getUTCDate())
+          + 'T'
+          + pad(d.getUTCHours())
+          + pad(d.getUTCMinutes())
+          + pad(d.getUTCSeconds())
+          + 'Z';
+      }
+      const ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Laudem Dei//Tickets//EN',
+        'BEGIN:VEVENT',
+        `UID:${ev.id}@laudemdei.org.za`,
+        `DTSTAMP:${toICSDate(new Date().toISOString())}`,
+        `DTSTART:${toICSDate(ev.startISO)}`,
+        `DTEND:${toICSDate(ev.endISO)}`,
+        `SUMMARY:${ev.title}`,
+        `DESCRIPTION:${ev.subtitle}`,
+        `LOCATION:${ev.venue}, ${ev.address}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${ev.id}.ics`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    // Render order
+    const items = readCart();
+    function renderOrder(){
+      const list = qs('#orderList'); list.innerHTML = '';
+      if (!items.length) list.innerHTML = '<p class="text-slate-500">No tickets.</p>';
+      for (const it of items){
         const row = document.createElement('div');
-        row.className = 'rounded-2xl border border-slate-200 p-3';
-        row.innerHTML = `
-          <div class='flex items-center justify-between'>
-            <div class='font-medium text-sm'>${t.name}</div>
-            <div class='text-sm text-slate-600'>${fmt(t.price)}</div>
-          </div>
-          <div class='mt-2 grid grid-cols-[1fr,56px] gap-2 items-center'>
-            <input type='range' min='0' max='${max}' value='${it.qty}' step='1' class='w-full' data-idx='${idx}' />
-            <input type='number' min='0' max='${max}' value='${it.qty}' class='w-full border rounded-lg px-2 py-1 text-center text-sm' data-idx='${idx}' />
-          </div>
-          <div class='text-xs text-slate-500 mt-1'>You can buy up to ${max} for this ticket type.</div>`;
-        wrap.appendChild(row);
-      });
-      wrap.querySelectorAll("input[type='range']").forEach(sl=>{
-        sl.addEventListener('input', e=>{
-          const idx=+e.target.dataset.idx; const t = CONFIG.tickets.find(x=>x.code===CART.items[idx].code);
-          let val=+e.target.value||0; val=Math.max(0, Math.min(val, (t&&t.limit)||99));
-          CART.items[idx].qty = val; const twin = wrap.querySelector(`input[type='number'][data-idx='${idx}']`); if (twin) twin.value = val; paintSummary();
-        });
-      });
-      wrap.querySelectorAll("input[type='number']").forEach(nb=>{
-        nb.addEventListener('input', e=>{
-          const idx=+e.target.dataset.idx; const t = CONFIG.tickets.find(x=>x.code===CART.items[idx].code);
-          let val=parseInt(e.target.value||'0',10); if (isNaN(val)) val=0; val=Math.max(0, Math.min(val, (t&&t.limit)||99));
-          CART.items[idx].qty = val; const twin = wrap.querySelector(`input[type='range'][data-idx='${idx}']`); if (twin) twin.value = val; paintSummary();
-        });
-      });
+        row.className = 'flex items-center justify-between';
+        row.innerHTML = `<span>${it.name} × ${it.qty}</span><span>${fmt(it.priceCents*it.qty)}</span>`;
+        list.appendChild(row);
+      }
+      const { total } = totals(items);
+      qs('#total').textContent = fmt(total);
+      qs('#payBtn').disabled = !(total>0);
     }
 
-    function totalCents(){ return CART.items.reduce((acc,it)=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); return acc + (t?t.price*it.qty:0); },0); }
-    function paintSummary(){
-      CART.items = CART.items.filter(it=>it.qty>0);
-      const sum = qs('#summary');
-      const lines = CART.items.map(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); return `<div class="flex justify-between"><span>${t.name} × ${it.qty}</span><span>${fmt(t.price*it.qty)}</span></div>`; }).join('');
-      const total = totalCents();
-      sum.innerHTML = (lines || '<div class="text-slate-500">No tickets selected.</div>') + '<hr class="my-2"/>' + `<div class='flex justify-between font-semibold'><span>Total</span><span>${fmt(total)}</span></div>`;
-      qs('#confirmBtn').disabled = !(total>0);
-      localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(CART));
+    // Error UI
+    function showError(msg){
+      const box = qs('#errBox');
+      box.textContent = msg || 'Error';
+      box.classList.remove('hidden');
     }
 
-    // === Confirm button label helpers ===
-    function setConfirmLabelPaidMode(){
-      const btn = qs('#confirmBtn');
-      if (!btn) return;
-      btn.textContent = "I’ve paid – Generate Tickets";
-      btn.classList.remove('bg-sky-600','hover:bg-sky-700');
-      btn.classList.add('bg-emerald-600','hover:bg-emerald-700');
-    }
-    function resetConfirmLabel(){
-      const btn = qs('#confirmBtn');
-      if (!btn) return;
-      btn.textContent = "Confirm Payment (Test)";
-      btn.classList.remove('bg-emerald-600','hover:bg-emerald-700');
-      btn.classList.add('bg-sky-600','hover:bg-sky-700');
-    }
-
-    // ====== Yoco Checkout (Option A via serverless) ======
-    async function onPayYoco(){
+    // Start checkout via API or Payment Link
+    async function startCheckout(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
       const email     = qs('#buyerEmail').value.trim();
       const cellRaw   = qs('#buyerCell').value.trim();
       const cellFmt   = saFormatInternational(cellRaw);
-      const err       = qs('#errText');
 
-      if(!firstName){ alert('Please enter your first name.'); return; }
-      if(!lastName){ alert('Please enter your last name.'); return; }
-      if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Please enter a valid email address.'); return; }
-      if(!cellFmt){ alert('Please enter a South African mobile like (+27) 82 123 4567'); return; }
+      if (!firstName || !lastName || !email){ showError('Please complete your details.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showError('Please enter a valid email address.'); return; }
+      if (!cellFmt){ showError('Enter a South African mobile like (+27) 82 123 4567'); return; }
       qs('#buyerCell').value = cellFmt;
 
-      const total = totalCents();
-      if (total <= 0) { alert('Select at least one ticket.'); return; }
+      const { total } = totals(items);
+      const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
 
-      const orderId = ('ord_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4)).toUpperCase();
+      // Update Test button label after starting live checkout (as requested)
+      const testBtn = qs('#testBtn');
+      testBtn.textContent = "I've paid – Generate Tickets";
 
-      // Persist pending order locally so we can complete after redirect back
-      const pending = {
-        orderId,
-        buyer: { firstName, lastName, email, cell: cellFmt },
-        items: CART.items.slice(),
-        total_cents: total,
-        savedAt: Date.now()
-      };
-      try { localStorage.setItem('choir_pending_order', JSON.stringify(pending)); } catch(_){}
+      if (CONFIG.simulateTestFlow){
+        // Test-only path (no payment)
+        await generateTickets({ orderId, firstName, lastName, email, cellFmt });
+        return;
+      }
 
-      // Flip confirm button to green "I’ve paid..."
-      setConfirmLabelPaidMode();
-      const hint = qs('#yocoHint'); if (hint) hint.classList.remove('hidden');
+      if (!CONFIG.API_URL || CONFIG.API_URL.includes('YOUR-VERCEL-APP')){
+        // Fallback: static payment link
+        window.location.href = CONFIG.YOCO_PAYMENT_LINK;
+        return;
+      }
 
-      // Create Yoco Checkout session server-side
-      try {
-        const resp = await fetch('/api/create-checkout', {
+      try{
+        const resp = await fetch(CONFIG.API_URL, {
           method: 'POST',
-          headers: { 'Content-Type':'application/json' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             amountInCents: total,
-            firstName,
-            lastName,
-            email,
-            items: pending.items,
+            firstName, lastName, email,
+            items,
             orderId
           })
         });
-        if (!resp.ok) {
+        if (!resp.ok){
           const text = await resp.text();
           throw new Error(text || ('Checkout start failed: ' + resp.status));
         }
-        const { redirectUrl } = await resp.json();
-        if (!redirectUrl) throw new Error('Missing redirectUrl from server');
-        // Off to Yoco hosted checkout (with amount baked in)
-        window.location.href = redirectUrl;
-      } catch (e) {
+        const data = await resp.json();
+        if (!data.redirectUrl) throw new Error('Missing redirectUrl from server');
+        window.location.href = data.redirectUrl; // go pay at Yoco
+      } catch (e){
         console.error(e);
-        if (err) { err.textContent = 'Could not start Yoco checkout. ' + (e.message||''); err.classList.remove('hidden'); }
+        showError('Could not start Yoco checkout. ' + (e.message||''));
         alert('Could not start Yoco checkout. Please try again or contact support.');
       }
     }
 
-    // ===== Confirm & generate tickets (after payment or test) =====
-    function randomId(prefix){ return (prefix||'ord_') + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
-    function onConfirm(e){
-      e.preventDefault();
+    // Ticket generation (no map QR; PNG export + share)
+    async function generateTickets({ orderId, firstName, lastName, email, cellFmt }){
+      const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
+      const generated = []; // keep QR data URLs if needed
+
+      for (const it of items){
+        for (let i=0; i<it.qty; i++){
+          const tkt = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+          const row = document.createElement('div');
+          row.className = 'grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
+          row.setAttribute('data-ticket-id', tkt);
+          row.innerHTML = `
+            <div>
+              <div class='flex items-center gap-2'>
+                <img src='${CONFIG.logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
+                <div class='font-medium'>${it.name}</div>
+              </div>
+              <div class='text-xs text-slate-500'>${tkt}</div>
+              <div class='text-xs'>${fmt(it.priceCents)}</div>
+              <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.startISO)} • ${CONFIG.event.venue}</div>
+              <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
+              <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${firstName} ${lastName} • ${cellFmt}</div>
+            </div>
+            <div id='qr_${tkt}' class='justify-self-end'></div>
+          `;
+          wrap.appendChild(row);
+
+          // QR payload (single QR only)
+          const qrDiv = row.querySelector('#qr_'+tkt);
+          const payload = JSON.stringify({
+            order: orderId, ticket: tkt,
+            event: CONFIG.event.id, title: CONFIG.event.title,
+            dateISO: CONFIG.event.startISO, venue: CONFIG.event.venue, address: CONFIG.event.address,
+            firstName, lastName, email, cell: cellFmt
+          });
+          new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+
+          // capture as data url for potential use
+          setTimeout(()=>{
+            const img = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
+            let dataUrl = '';
+            if (img && img.tagName === 'IMG') dataUrl = img.src;
+            else if (img && img.toDataURL) dataUrl = img.toDataURL('image/png');
+            generated.push({ code: it.code, name: it.name, ticket_id: tkt, price_cents: it.priceCents, qr_png: dataUrl });
+          }, 40);
+        }
+      }
+
+      qs('#orderIdOut').textContent = orderId;
+      qs('#successWrap').classList.remove('hidden');
+
+      // PNG export (rounded border)
+      qs('#pngBtn').onclick = async function(){
+        const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to export.'); return; }
+        for (const row of rows){
+          const prev = { backgroundColor: row.style.backgroundColor, borderRadius: row.style.borderRadius, border: row.style.border, boxShadow: row.style.boxShadow, overflow: row.style.overflow, padding: row.style.padding };
+          row.style.backgroundColor = '#ffffff'; row.style.borderRadius = '16px'; row.style.border = '2px solid #e2e8f0'; row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)'; row.style.overflow = 'hidden'; row.style.padding = row.style.padding || '12px 16px';
+          const canvas = await html2canvas(row, { backgroundColor: null, scale: 2 });
+          row.style.backgroundColor = prev.backgroundColor; row.style.borderRadius = prev.borderRadius; row.style.border = prev.border; row.style.boxShadow = prev.boxShadow; row.style.overflow = prev.overflow; row.style.padding = prev.padding;
+          const dataUrl = canvas.toDataURL('image/png');
+          const a = document.createElement('a'); const tid = row.dataset.ticketId || 'ticket';
+          a.href = dataUrl; a.download = `${CONFIG.event.id}_${tid}.png`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          await new Promise(r=>setTimeout(r,120));
+        }
+      };
+
+      // Share-all via WhatsApp (fallback to text if files cannot be shared)
+      qs('#shareAllBtn').onclick = async function(){
+        const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to share.'); return; }
+        const cellFmtNow = qs('#buyerCell').value.trim();
+        const waNum = saNumberForWhatsApp(cellFmtNow);
+        const files = [];
+        let i=0;
+        for (const row of rows){
+          const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true });
+          const blob = await new Promise(res=> canvas.toBlob(b=>res(b), 'image/png'));
+          if (!blob) continue;
+          const tid = row.dataset.ticketId || `ticket_${++i}`;
+          files.push(new File([blob], `${CONFIG.event.id}_${tid}.png`, { type:'image/png' }));
+          if (files.length>=10) break;
+        }
+        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId}\nTickets attached (${files.length}).`;
+        if (files.length && navigator.canShare && navigator.canShare({ files })){
+          await navigator.share({ files, title: `${CONFIG.event.title} tickets`, text });
+          return;
+        }
+        if (!waNum){ alert('Invalid SA mobile for WhatsApp'); return; }
+        const encoded = encodeURIComponent(`${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`);
+        window.open(`https://wa.me/${waNum}?text=${encoded}`, '_blank');
+      };
+
+      qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
+    }
+
+    // Test flow button
+    async function testFlow(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
       const email     = qs('#buyerEmail').value.trim();
       const cellRaw   = qs('#buyerCell').value.trim();
       const cellFmt   = saFormatInternational(cellRaw);
-      if(!firstName){ alert('Please enter your first name.'); return; }
-      if(!lastName){ alert('Please enter your last name.'); return; }
-      if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert('Please enter a valid email address.'); return; }
-      if(!cellFmt){ alert('Please enter a South African mobile like (+27) 82 123 4567'); return; }
-      qs('#buyerCell').value = cellFmt;
-
-      const buyerFull = [firstName, lastName].filter(Boolean).join(' ');
-      const orderId = (function(){ const p = localStorage.getItem('choir_pending_order'); if (p) { try { const j=JSON.parse(p); if (j && j.orderId) return j.orderId; } catch(_){} } return randomId('order_'); })();
-
-      const list = qs('#ticketList'); list.innerHTML='';
-      CART.items.forEach(it=>{ const t=CONFIG.tickets.find(x=>x.code===it.code); for(let i=1;i<=it.qty;i++){
-        const tkt=randomId('TKT-');
-        const row=document.createElement('div');
-        row.className='grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
-        row.dataset.ticketId = tkt;
-        row.innerHTML = `<div>
-            <div class='flex items-center gap-2'>
-              <img src='${CONFIG.logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
-              <div class='font-medium'>${t.name}</div>
-            </div>
-            <div class='text-xs text-slate-500'>${tkt}</div>
-            <div class='text-xs'>${fmt(t.price)}</div>
-            <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.dateISO)} • ${CONFIG.event.venue}</div>
-            <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
-            <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${buyerFull} • ${cellFmt}</div>
-          </div>
-          <div id='qr_${tkt}' class='justify-self-end'></div>`;
-        list.appendChild(row);
-        const qrDiv = row.querySelector('#qr_'+tkt);
-        const payload = JSON.stringify({
-          order: orderId,
-          ticket: tkt,
-          event: CONFIG.event.id,
-          title: CONFIG.event.title,
-          dateISO: CONFIG.event.dateISO,
-          venue: CONFIG.event.venue,
-          address: CONFIG.event.address,
-          firstName, lastName, email, cell: cellFmt
-        });
-        new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-      }});
-
-      qs('#orderId').textContent = orderId; 
-      qs('#mockForm').classList.add('hidden'); 
-      qs('#successArea').classList.remove('hidden');
-
-      // ---- Add-to-Calendar wiring ----
-      function icsDateUTC(d){ return new Date(d).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z'; }
-      const start = new Date(CONFIG.event.dateISO);
-      const end = new Date(start.getTime() + 2*60*60*1000); // 2h default
-      const summary = `${CONFIG.orgName} — ${CONFIG.event.title}`;
-      const location = `${CONFIG.event.venue}, ${CONFIG.event.address}`;
-      const description = `Doors: ${new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'}).format(new Date(CONFIG.event.doorsISO))}\nMap: ${CONFIG.event.mapLink}\nOrder: ${orderId}`;
-      const ics =
-`BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Laudem Dei//Tickets//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-BEGIN:VEVENT
-UID:${orderId}@laudemdei.tickets
-DTSTAMP:${icsDateUTC(Date.now())}
-DTSTART:${icsDateUTC(start)}
-DTEND:${icsDateUTC(end)}
-SUMMARY:${summary.replace(/\n/g,' ')}
-LOCATION:${location.replace(/\n/g,' ')}
-DESCRIPTION:${description.replace(/\n/g,' ')}
-END:VEVENT
-END:VCALENDAR`;
-      const icsBtn = qs('#icsBtn');
-      if (icsBtn) icsBtn.onclick = () => {
-        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href=url; a.download=`${CONFIG.event.id}_${orderId}.ics`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      };
-      const gcalBtn = qs('#gcalBtn');
-      if (gcalBtn){
-        const icsUTC = (d)=>new Date(d).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
-        const gTitle=encodeURIComponent(summary), gDetails=encodeURIComponent(description), gLoc=encodeURIComponent(location);
-        const gDates=`${icsUTC(start)}/${icsUTC(end)}`;
-        gcalBtn.href=`https://www.google.com/calendar/render?action=TEMPLATE&text=${gTitle}&dates=${gDates}&location=${gLoc}&details=${gDetails}`;
-      }
-
-      // PNG per ticket (rounded border)
-      qs('#pngBtn').onclick = async function(){
-        const rows = qsa('#ticketList > div'); if (!rows.length) return;
-        for (const row of rows) {
-          const prev = { backgroundColor: row.style.backgroundColor, borderRadius: row.style.borderRadius, border: row.style.border, boxShadow: row.style.boxShadow, overflow: row.style.overflow, padding: row.style.padding };
-          row.style.backgroundColor='#ffffff'; row.style.borderRadius='16px'; row.style.border='2px solid #e2e8f0'; row.style.boxShadow='0 8px 20px rgba(2,132,199,0.08)'; row.style.overflow='hidden'; row.style.padding=row.style.padding||'12px 16px';
-          const canvas = await html2canvas(row, { backgroundColor:null, scale:2 });
-          row.style.backgroundColor=prev.backgroundColor; row.style.borderRadius=prev.borderRadius; row.style.border=prev.border; row.style.boxShadow=prev.boxShadow; row.style.overflow=prev.overflow; row.style.padding=prev.padding;
-          const dataUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a'); const tid=row.dataset.ticketId||'ticket'; a.href=dataUrl; a.download=`${CONFIG.event.id}_${tid}.png`;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a); await new Promise(r=>setTimeout(r,120));
-        }
-      };
-
-      // Share all (Web Share API + WhatsApp fallback)
-      qs('#shareAllBtn').onclick = async function(){
-        const rows = qsa('#ticketList > div'); if (!rows.length) { alert('No tickets to share.'); return; }
-        const files = [];
-        for (const row of rows) {
-          const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true, allowTaint:false });
-          const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
-          if (blob) files.push(new File([blob], `${CONFIG.event.id}_${row.dataset.ticketId}.png`, { type:'image/png' }));
-          if (files.length >= 10) break;
-        }
-        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId}\nTickets attached (${files.length}).`;
-        if (files.length && navigator.canShare && navigator.canShare({ files })) {
-          await navigator.share({ files, title: `${CONFIG.event.title} tickets`, text });
-          return;
-        }
-        const waNum = saNumberForWhatsApp(qs('#buyerCell').value);
-        if (!waNum) { alert('Invalid SA mobile for WhatsApp'); return; }
-        const fallbackMsg = `${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`;
-        window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(fallbackMsg)}`, '_blank');
-      };
-
-      // Clear pending order so button resets next time
-      try { localStorage.removeItem('choir_pending_order'); } catch(_) {}
-      resetConfirmLabel();
+      if (!firstName || !lastName || !email){ showError('Please complete your details.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showError('Please enter a valid email address.'); return; }
+      if (!cellFmt){ showError('Enter a South African mobile like (+27) 82 123 4567'); return; }
+      const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+      await generateTickets({ orderId, firstName, lastName, email, cellFmt });
     }
 
-    function paintHeaderAndSummary(){
-      paintHeader(); paintAdjust(); paintSummary();
-      // If pending Yoco order exists, keep the confirm button in paid mode & show hint; prefill names/email/cell
-      try {
-        const pendingRaw = localStorage.getItem('choir_pending_order');
-        if (pendingRaw) {
-          const p = JSON.parse(pendingRaw);
-          if (p && p.orderId) {
-            setConfirmLabelPaidMode();
-            const hint = qs('#yocoHint'); if (hint) hint.classList.remove('hidden');
-            const fn = qs('#firstName'), ln = qs('#lastName'), em = qs('#buyerEmail'), ce = qs('#buyerCell');
-            if (fn) fn.value = p.buyer.firstName || '';
-            if (ln) ln.value = p.buyer.lastName  || '';
-            if (em) em.value = p.buyer.email     || '';
-            if (ce) ce.value = p.buyer.cell      || '';
-          }
-        }
-      } catch(_) {}
-    }
-
+    // Boot
     function boot(){
-      paintHeaderAndSummary();
+      // Render order
+      renderOrder();
 
-      // SA cell formatter on blur/change
+      // Wire buttons
+      qs('#payBtn').addEventListener('click', startCheckout);
+      qs('#testBtn').addEventListener('click', testFlow);
+      qs('#icsBtn').addEventListener('click', downloadICS);
+
+      // SA formatter on blur
       const cellEl = qs('#buyerCell');
-      const run = ()=>{ const f = saFormatInternational(cellEl.value); if (f) { cellEl.setCustomValidity(''); cellEl.value = f; } else { cellEl.setCustomValidity('Enter a South African mobile like (+27) 82 123 4567'); } };
-      cellEl.addEventListener('blur', run); cellEl.addEventListener('change', run); cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
+      const run = ()=>{ const f = saFormatInternational(cellEl.value); if (f){ cellEl.setCustomValidity(''); cellEl.value = f; } else { cellEl.setCustomValidity('Enter a South African mobile like (+27) 82 123 4567'); } };
+      cellEl.addEventListener('blur', run);
+      cellEl.addEventListener('change', run);
+      cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
 
-      qs('#mockForm').addEventListener('submit', onConfirm);
-      const yb = qs('#yocoBtn'); if (yb) yb.addEventListener('click', onPayYoco);
-
-      // If redirected back from Yoco with ?paid=1, keep paid mode; user clicks the green button to generate tickets.
-      const qp = parseQuery();
-      if (qp.paid === '1') {
-        setConfirmLabelPaidMode();
-        const hint = qs('#yocoHint'); if (hint) hint.classList.remove('hidden');
+      // If returning from Yoco with ?paid=1 (optional)
+      const params = new URLSearchParams(location.search);
+      if (params.get('paid') === '1'){
+        // If you can pass back orderId via success URL params, read it here and render tickets.
+        // For now, generate a placeholder order to allow users to get tickets after payment.
+        testFlow();
       }
     }
     document.addEventListener('DOMContentLoaded', boot, { once:true });
+
+    // Dev sanity tests
+    (function selfTests(){
+      function ok(name, cond){ if(!cond) throw new Error('Self-test failed: '+name); }
+      ok('fmt', typeof fmt(20000) === 'string');
+      ok('saNormalize', saNormalizeNSN('082 123 4567') === '821234567');
+      ok('saFormat', saFormatInternational('0821234567') === '(+27) 82 123 4567');
+      console.log('✅ self-tests passed');
+    })();
+
+  })();
   </script>
 </body>
 </html>
