@@ -1,6 +1,7 @@
+// pages/api/checkout.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const ALLOW_ORIGIN = process.env.CORS_ORIGIN ?? "*";
+const ALLOW_ORIGIN = process.env.CORS_ORIGIN ?? "*"; // set to your Wix/site origin in Vercel for production
 
 function setCors(res: NextApiResponse) {
   res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
@@ -10,18 +11,30 @@ function setCors(res: NextApiResponse) {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   setCors(res);
+
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
   try {
     const { amountCents, description, successUrl, cancelUrl, meta } = req.body || {};
 
-    if (!process.env.YOCO_SECRET) return res.status(500).json({ ok:false, error:"Missing YOCO_SECRET env" });
-    if (!Number.isInteger(amountCents) || amountCents < 100)
-      return res.status(400).json({ ok:false, error:"amountCents must be integer cents >= 100" });
-    if (!successUrl || !cancelUrl || !/^https:\/\//.test(successUrl) || !/^https:\/\//.test(cancelUrl))
-      return res.status(400).json({ ok:false, error:"successUrl/cancelUrl must be HTTPS" });
+    // Basic validation
+    if (!process.env.YOCO_SECRET) {
+      return res.status(500).json({ ok: false, error: "Missing YOCO_SECRET env on server" });
+    }
+    if (!Number.isInteger(amountCents) || amountCents < 100) {
+      return res.status(400).json({ ok: false, error: "amountCents must be integer cents >= 100 (e.g., R150 = 15000)" });
+    }
+    if (
+      typeof successUrl !== "string" ||
+      typeof cancelUrl !== "string" ||
+      !/^https:\/\//.test(successUrl) ||
+      !/^https:\/\//.test(cancelUrl)
+    ) {
+      return res.status(400).json({ ok: false, error: "successUrl and cancelUrl must be HTTPS URLs" });
+    }
 
+    // Call Yoco: create a hosted checkout
     const r = await fetch("https://payments.yoco.com/api/checkouts", {
       method: "POST",
       headers: {
@@ -39,10 +52,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const p = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(400).json({ ok:false, error: p?.message || `Yoco ${r.status}` });
+    if (!r.ok) {
+      return res.status(400).json({ ok: false, error: p?.message || `Yoco ${r.status}` });
+    }
 
-    res.status(200).json({ ok:true, checkoutId: p.id, redirectUrl: p.redirectUrl || p.url });
+    return res.status(200).json({
+      ok: true,
+      checkoutId: p.id,
+      redirectUrl: p.redirectUrl || p.url, // Yoco may return either
+    });
   } catch (e: any) {
-    res.status(500).json({ ok:false, error: e?.message || "Server error" });
+    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
   }
 }
