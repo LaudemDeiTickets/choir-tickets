@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 function b64urlDecode(input) {
   input = (input || "").replace(/-/g, "+").replace(/_/g, "/");
@@ -23,7 +23,7 @@ function verifyWithSecrets(token, secrets) {
       const payload = JSON.parse(data);
       const now = Date.now();
       if (payload.exp && now > payload.exp) throw new Error("Token expired");
-      return payload; // success with this secret
+      return payload;
     }
   }
   throw new Error("Invalid signature");
@@ -38,24 +38,27 @@ export default async function handler(req, res) {
     if (req.method === "OPTIONS") return res.status(204).end();
 
     let token = "";
-    if (req.method === "GET") token = (req.query?.token || "").toString();
-    else if (req.method === "POST") {
+    if (req.method === "GET") {
+      token = (req.query?.token || "").toString();
+    } else if (req.method === "POST") {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
       token = body.token || "";
-    } else return res.status(405).json({ ok:false, error:"Method Not Allowed" });
+    } else {
+      return res.status(405).json({ ok:false, error:"Method Not Allowed" });
+    }
 
     if (!token) return res.status(400).json({ ok:false, error:"Missing token" });
 
-    // Support rotation: primary + legacy secret
     const primary = process.env.TICKET_SIGNING_SECRET;
-    const legacy  = process.env.TICKET_SIGNING_SECRET_OLD; // optional
+    const legacy  = process.env.TICKET_SIGNING_SECRET_OLD;
     if (!primary) return res.status(500).json({ ok:false, error:"Missing TICKET_SIGNING_SECRET" });
 
     const payload = verifyWithSecrets(token, [primary, legacy].filter(Boolean));
     return res.status(200).json({ ok:true, payload });
   } catch (e) {
+    console.error("verify error:", e?.message);
     return res.status(400).json({ ok:false, error: e?.message || "Bad token" });
   }
 }
