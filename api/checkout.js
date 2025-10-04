@@ -1,4 +1,3 @@
-// api/checkout.js
 export default async function handler(req, res) {
   const ALLOW_ORIGIN = process.env.CORS_ORIGIN || "*";
   res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
