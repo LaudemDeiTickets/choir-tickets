@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     if (!Number.isInteger(amountCents) || amountCents < 100)
       return res.status(400).json({ ok:false, error:"amountCents must be integer cents >= 100 (R150 = 15000)" });
 
-    if (!/^https:\/\//.test(successUrl || "") || !/^https:\/\//.test(cancelUrl || ""))
+    if (!/^https:\/\//.test(successUrl||"") || !/^https:\/\//.test(cancelUrl||""))
       return res.status(400).json({ ok:false, error:"successUrl/cancelUrl must be HTTPS" });
 
     const r = await fetch("https://payments.yoco.com/api/checkouts", {
