@@ -30,6 +30,7 @@
       <a href="index.html" class="text-sm underline hover:no-underline">Back to tickets</a>
     </header>
 
+    <!-- Event Summary -->
     <section class="mt-6 glass rounded-2xl border border-slate-200 p-5">
       <h2 class="text-lg font-semibold">Spring Serenade Concert</h2>
       <p class="text-sm text-slate-600">An evening of choral gems</p>
@@ -38,10 +39,12 @@
       <button id="icsBtn" class="mt-3 px-3 py-2 rounded-lg border hover:bg-white text-sm">Add to Calendar (.ics)</button>
     </section>
 
+    <!-- Error banner -->
     <div id="errBox" class="hidden mt-4 rounded-xl border border-red-200 bg-red-50 text-red-900 p-3 text-sm"></div>
 
+    <!-- Buyer details + order -->
     <section class="mt-6 grid md:grid-cols-2 gap-6 items-start">
-      <form id="buyerForm" class="glass rounded-2xl border border-slate-200 p-5 grid gap-3">
+      <form id="buyerForm" class="glass rounded-2xl border border-slate-200 p-5 grid gap-3" novalidate>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-sm text-slate-600">First name</label>
@@ -79,6 +82,7 @@
       </aside>
     </section>
 
+    <!-- Success / Ticket rendering -->
     <section id="successWrap" class="hidden mt-8">
       <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
         <p class="font-semibold">Payment Successful</p>
@@ -97,6 +101,7 @@
   (function(){
     'use strict';
 
+    // ======= CONFIG =======
     const CONFIG = {
       orgName: "Laudem Dei Chamber Choir",
       logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
@@ -116,12 +121,14 @@
       simulateTestFlow: false
     };
 
+    // ====== Utilities ======
     const ZAR = new Intl.NumberFormat('en-ZA', { style:'currency', currency:'ZAR', maximumFractionDigits:0 });
     const fmt = (cents) => ZAR.format((cents||0)/100);
     const qs = (s,r)=> (r||document).querySelector(s);
     const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
     const toHuman = (iso)=> new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
 
+    // Example cart (replace with your storage)
     const DEFAULT_TICKETS = [{code:'GEN', name:'General Admission', qty:1, priceCents:20000}];
     function readCart(){
       try{
@@ -137,6 +144,7 @@
       return { total };
     }
 
+    // SA-only cell helpers
     function saDigits(s){ return (s||'').replace(/[^0-9]+/g,''); }
     function saNormalizeNSN(raw){
       const d = saDigits(raw); if (!d) return null;
@@ -161,6 +169,7 @@
       return '27' + nsn;
     }
 
+    // Calendar (.ics)
     function downloadICS(){
       const ev = CONFIG.event;
       function toICSDate(iso){
@@ -180,7 +189,7 @@
         `DESCRIPTION:${ev.subtitle}`,
         `LOCATION:${ev.venue}, ${ev.address}`,
         'END:VEVENT','END:VCALENDAR'
-      ].join('\\r\\n');
+      ].join('\r\n');
       const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -188,6 +197,7 @@
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
+    // Render order
     const items = readCart();
     function renderOrder(){
       const list = qs('#orderList'); list.innerHTML = '';
@@ -203,29 +213,33 @@
       qs('#payBtn').disabled = !(total>0);
     }
 
+    // Error UI
     function showError(msg){
       const box = qs('#errBox');
       box.textContent = msg || 'Error';
       box.classList.remove('hidden');
     }
 
+    // === Start checkout (client → your API → Yoco) ===
     async function startCheckout(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
-      const email     = qs('#buyerEmail').value.trim();
+      const emailEl   = qs('#buyerEmail');
+      const email     = emailEl.value.trim();
       const cellRaw   = qs('#buyerCell').value.trim();
       const cellFmt   = saFormatInternational(cellRaw);
 
-      if (!firstName || !lastName || !email){ showError('Please complete your details.'); return; }
-      if (!/^([^\\s@]+)@([^\\s@]+)\\.([^\\s@]+)$/.test(email)){ showError('Please enter a valid email address.'); return; }
+      if (!firstName || !lastName){ showError('Please complete your name.'); return; }
+      if (!emailEl.checkValidity()){ emailEl.reportValidity(); return; }
       if (!cellFmt){ showError('Enter a South African mobile like (+27) 82 123 4567'); return; }
       qs('#buyerCell').value = cellFmt;
 
-      const { total } = totals(items);
+      const { total } = totals(items); // cents
       if (total < 100) { showError('Total must be at least R1.00'); return; }
 
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
 
+      // After payment, come back to this page; webhook will send a token separately
       const successUrl = `${location.origin}${location.pathname}?paid=1&order=${encodeURIComponent(orderId)}`;
       const cancelUrl  = `${location.origin}${location.pathname}?cancelled=1&order=${encodeURIComponent(orderId)}`;
 
@@ -245,6 +259,7 @@
             description: `${CONFIG.event.title} — ${items.map(i=>`${i.name}×${i.qty}`).join(', ')}`,
             successUrl, cancelUrl,
             meta: { orderId, eventId: CONFIG.event.id, buyer: { firstName, lastName, email, cell: cellFmt }, items }
+            // Optional: mode: 'test'
           })
         });
         if (!resp.ok){
@@ -253,7 +268,7 @@
         }
         const data = await resp.json();
         if (!data.redirectUrl) throw new Error('Missing redirectUrl from server');
-        window.location.href = data.redirectUrl;
+        window.location.href = data.redirectUrl; // redirect to Yoco
       } catch (e){
         console.error(e);
         showError('Could not start Yoco checkout. ' + (e.message||''));
@@ -261,6 +276,7 @@
       }
     }
 
+    // === Claim real tickets from webhook token ===
     async function claimTicketsFromToken() {
       const params = new URLSearchParams(location.search);
       const token = params.get('token');
@@ -273,6 +289,7 @@
         if (!data.ok) throw new Error(data.error || 'Verify failed');
 
         const p = data.payload;
+        // Use signed items emitted by the server (one entry per ticket)
         window.__SIGNED_ITEMS__ = Array.isArray(p.items) ? p.items : [];
 
         const firstName = (p.buyer?.firstName || '').trim();
@@ -289,13 +306,14 @@
       }
     }
 
+    // Ticket generation (uses signed items if available; else cart)
     async function generateTickets({ orderId, firstName, lastName, email, cellFmt }){
       const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
 
-      const itemsLocal = readCart();
+      // Prefer signed items from webhook token; otherwise the local cart
       const sourceItems = (window.__SIGNED_ITEMS__ && Array.isArray(window.__SIGNED_ITEMS__) && window.__SIGNED_ITEMS__.length)
         ? window.__SIGNED_ITEMS__
-        : itemsLocal.flatMap(it => Array.from({length: it.qty||0}, () => ({
+        : readCart().flatMap(it => Array.from({length: it.qty||0}, () => ({
             code: it.code, name: it.name, priceCents: it.priceCents
           })));
 
@@ -334,6 +352,7 @@
       qs('#orderIdOut').textContent = orderId;
       qs('#successWrap').classList.remove('hidden');
 
+      // PNG export
       qs('#pngBtn').onclick = async function(){
         const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to export.'); return; }
         for (const row of rows){
@@ -348,6 +367,7 @@
         }
       };
 
+      // Share-all via WhatsApp
       qs('#shareAllBtn').onclick = async function(){
         const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to share.'); return; }
         const cellFmtNow = qs('#buyerCell').value.trim();
@@ -375,19 +395,24 @@
       qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
     }
 
+    // Test flow (no payment)
     async function testFlow(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
-      const email     = qs('#buyerEmail').value.trim();
+      const emailEl   = qs('#buyerEmail');
+      const email     = emailEl.value.trim();
       const cellRaw   = qs('#buyerCell').value.trim();
       const cellFmt   = saFormatInternational(cellRaw);
-      if (!firstName || !lastName || !email){ showError('Please complete your details.'); return; }
-      if (!/^([^\\s@]+)@([^\\s@]+)\\.([^\\s@]+)$/.test(email)){ showError('Please enter a valid email address.'); return; }
+
+      if (!firstName || !lastName){ showError('Please complete your name.'); return; }
+      if (!emailEl.checkValidity()){ emailEl.reportValidity(); return; }
       if (!cellFmt){ showError('Enter a South African mobile like (+27) 82 123 4567'); return; }
+
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
       await generateTickets({ orderId, firstName, lastName, email, cellFmt });
     }
 
+    // === BOOT ===
     async function boot(){
       renderOrder();
       qs('#payBtn').addEventListener('click', (e)=>{ e.preventDefault(); startCheckout(); });
@@ -400,8 +425,10 @@
       cellEl.addEventListener('change', run);
       cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
 
+      // 1) Try to claim real tickets via webhook token
       if (await claimTicketsFromToken()) return;
 
+      // 2) Fallback: allow manual test flow if ?paid=1 (no real payment)
       const params = new URLSearchParams(location.search);
       if (params.get('paid') === '1'){ testFlow(); }
     }
