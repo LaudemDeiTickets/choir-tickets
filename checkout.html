@@ -222,7 +222,7 @@
       box.classList.remove('hidden');
     }
 
-    // === NEW: Start checkout (client → your API → Yoco) ===
+    // === Start checkout (client → your API → Yoco) ===
     async function startCheckout(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
@@ -240,7 +240,7 @@
 
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
 
-      // After payment, come back to this page with a flag; you can render tickets then
+      // After payment, come back to this page; webhook will send a token separately
       const successUrl = `${location.origin}${location.pathname}?paid=1&order=${encodeURIComponent(orderId)}`;
       const cancelUrl  = `${location.origin}${location.pathname}?cancelled=1&order=${encodeURIComponent(orderId)}`;
 
@@ -277,45 +277,83 @@
       }
     }
 
-    // Ticket generation (unchanged; local render)
+    // === NEW: claim real tickets from webhook token ===
+    async function claimTicketsFromToken() {
+      const params = new URLSearchParams(location.search);
+      const token = params.get('token');
+      if (!token) return false;
+
+      try{
+        const verifyUrl = 'https://choir-tickets.vercel.app/api/tickets/verify?token=' + encodeURIComponent(token);
+        const resp = await fetch(verifyUrl, { method: 'GET' });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Verify failed');
+
+        const p = data.payload;
+        // Use signed items emitted by the server (one entry per ticket)
+        window.__SIGNED_ITEMS__ = Array.isArray(p.items) ? p.items : [];
+
+        const firstName = (p.buyer?.firstName || '').trim();
+        const lastName  = (p.buyer?.lastName  || '').trim();
+        const email     = (p.buyer?.email     || '').trim();
+        const cellFmt   = (p.buyer?.cell      || '').trim();
+
+        await generateTickets({ orderId: p.orderId, firstName, lastName, email, cellFmt });
+        return true;
+      }catch(e){
+        console.error(e);
+        showError('Could not verify ticket token. ' + (e.message||''));
+        return false;
+      }
+    }
+
+    // Ticket generation (uses signed items if available; else cart)
     async function generateTickets({ orderId, firstName, lastName, email, cellFmt }){
       const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
-      const generated = [];
-      for (const it of items){
-        for (let i=0; i<it.qty; i++){
-          const tkt = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
-          const row = document.createElement('div');
-          row.className = 'grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
-          row.setAttribute('data-ticket-id', tkt);
-          row.innerHTML = `
-            <div>
-              <div class='flex items-center gap-2'>
-                <img src='${CONFIG.logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
-                <div class='font-medium'>${it.name}</div>
-              </div>
-              <div class='text-xs text-slate-500'>${tkt}</div>
-              <div class='text-xs'>${fmt(it.priceCents)}</div>
-              <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.startISO)} • ${CONFIG.event.venue}</div>
-              <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
-              <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${firstName} ${lastName} • ${cellFmt}</div>
+
+      // Prefer signed items from webhook token; otherwise the local cart
+      const sourceItems = (window.__SIGNED_ITEMS__ && Array.isArray(window.__SIGNED_ITEMS__) && window.__SIGNED_ITEMS__.length)
+        ? window.__SIGNED_ITEMS__
+        : items.flatMap(it => Array.from({length: it.qty||0}, () => ({
+            code: it.code, name: it.name, priceCents: it.priceCents
+          })));
+
+      for (const it of sourceItems){
+        const tkt = it.ticketId || ('TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4));
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
+        row.setAttribute('data-ticket-id', tkt);
+        row.innerHTML = `
+          <div>
+            <div class='flex items-center gap-2'>
+              <img src='${CONFIG.logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
+              <div class='font-medium'>${it.name}</div>
             </div>
-            <div id='qr_${tkt}' class='justify-self-end'></div>
-          `;
-          wrap.appendChild(row);
-          const qrDiv = row.querySelector('#qr_'+tkt);
-          const payload = JSON.stringify({
-            order: orderId, ticket: tkt,
-            event: CONFIG.event.id, title: CONFIG.event.title,
-            dateISO: CONFIG.event.startISO, venue: CONFIG.event.venue, address: CONFIG.event.address,
-            firstName, lastName, email, cell: cellFmt
-          });
-          new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-          setTimeout(()=>{}, 40);
-        }
+            <div class='text-xs text-slate-500'>${tkt}</div>
+            <div class='text-xs'>${fmt(it.priceCents)}</div>
+            <div class='text-xs text-slate-600 mt-1'>${toHuman(CONFIG.event.startISO)} • ${CONFIG.event.venue}</div>
+            <div class='text-[11px] text-slate-500'>${CONFIG.event.address}</div>
+            <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${firstName} ${lastName} • ${cellFmt}</div>
+          </div>
+          <div id='qr_${tkt}' class='justify-self-end'></div>
+        `;
+        wrap.appendChild(row);
+
+        const qrDiv = row.querySelector('#qr_'+tkt);
+        const payload = JSON.stringify({
+          order: orderId, ticket: tkt,
+          event: CONFIG.event.id, title: CONFIG.event.title,
+          dateISO: CONFIG.event.startISO, venue: CONFIG.event.venue, address: CONFIG.event.address,
+          firstName, lastName, email, cell: cellFmt
+        });
+        new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+        await new Promise(r => setTimeout(r, 10));
       }
+
       qs('#orderIdOut').textContent = orderId;
       qs('#successWrap').classList.remove('hidden');
 
+      // PNG export
       qs('#pngBtn').onclick = async function(){
         const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to export.'); return; }
         for (const row of rows){
@@ -330,6 +368,7 @@
         }
       };
 
+      // Share-all via WhatsApp
       qs('#shareAllBtn').onclick = async function(){
         const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to share.'); return; }
         const cellFmtNow = qs('#buyerCell').value.trim();
@@ -371,7 +410,8 @@
       await generateTickets({ orderId, firstName, lastName, email, cellFmt });
     }
 
-    function boot(){
+    // === BOOT ===
+    async function boot(){
       renderOrder();
       qs('#payBtn').addEventListener('click', (e)=>{ e.preventDefault(); startCheckout(); });
       qs('#testBtn').addEventListener('click', testFlow);
@@ -383,6 +423,10 @@
       cellEl.addEventListener('change', run);
       cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
 
+      // 1) Try to claim real tickets via webhook token
+      if (await claimTicketsFromToken()) return;
+
+      // 2) Fallback: allow manual test flow if ?paid=1 (no real payment)
       const params = new URLSearchParams(location.search);
       if (params.get('paid') === '1'){ testFlow(); }
     }
