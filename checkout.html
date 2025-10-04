@@ -197,6 +197,18 @@
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
+    // ===== Saved-buyer helpers =====
+    function readSavedBuyer() {
+      try { return JSON.parse(localStorage.getItem('ld_buyer') || '{}'); } catch { return {}; }
+    }
+    function readCartSnapshot() {
+      try {
+        const snap = JSON.parse(localStorage.getItem('ld_cart_snapshot') || '[]');
+        if (Array.isArray(snap) && snap.length) return snap;
+      } catch {}
+      return null;
+    }
+
     // Render order
     const items = readCart();
     function renderOrder(){
@@ -239,9 +251,17 @@
 
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
 
-      // After payment, come back to this page; webhook will send a token separately
+      // After payment, come back to this page; webhook may send a token, otherwise use saved snapshot
       const successUrl = `${location.origin}${location.pathname}?paid=1&order=${encodeURIComponent(orderId)}`;
       const cancelUrl  = `${location.origin}${location.pathname}?cancelled=1&order=${encodeURIComponent(orderId)}`;
+
+      // Save buyer & cart snapshot for post-redirect rendering
+      try {
+        localStorage.setItem('ld_buyer', JSON.stringify({
+          orderId, firstName, lastName, email, cell: cellFmt
+        }));
+        localStorage.setItem('ld_cart_snapshot', JSON.stringify(items));
+      } catch {}
 
       qs('#testBtn').textContent = "I've paid – Generate Tickets";
 
@@ -259,7 +279,6 @@
             description: `${CONFIG.event.title} — ${items.map(i=>`${i.name}×${i.qty}`).join(', ')}`,
             successUrl, cancelUrl,
             meta: { orderId, eventId: CONFIG.event.id, buyer: { firstName, lastName, email, cell: cellFmt }, items }
-            // Optional: mode: 'test'
           })
         });
         if (!resp.ok){
@@ -268,7 +287,9 @@
         }
         const data = await resp.json();
         if (!data.redirectUrl) throw new Error('Missing redirectUrl from server');
-        window.location.href = data.redirectUrl; // redirect to Yoco
+
+        // Redirect to Yoco to pay
+        window.location.href = data.redirectUrl;
       } catch (e){
         console.error(e);
         showError('Could not start Yoco checkout. ' + (e.message||''));
@@ -289,7 +310,6 @@
         if (!data.ok) throw new Error(data.error || 'Verify failed');
 
         const p = data.payload;
-        // Use signed items emitted by the server (one entry per ticket)
         window.__SIGNED_ITEMS__ = Array.isArray(p.items) ? p.items : [];
 
         const firstName = (p.buyer?.firstName || '').trim();
@@ -306,16 +326,20 @@
       }
     }
 
-    // Ticket generation (uses signed items if available; else cart)
+    // Ticket generation (uses signed items if available; else saved snapshot; else cart)
     async function generateTickets({ orderId, firstName, lastName, email, cellFmt }){
       const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
 
-      // Prefer signed items from webhook token; otherwise the local cart
+      const snap = readCartSnapshot();
       const sourceItems = (window.__SIGNED_ITEMS__ && Array.isArray(window.__SIGNED_ITEMS__) && window.__SIGNED_ITEMS__.length)
         ? window.__SIGNED_ITEMS__
-        : readCart().flatMap(it => Array.from({length: it.qty||0}, () => ({
-            code: it.code, name: it.name, priceCents: it.priceCents
-          })));
+        : (snap
+            ? snap.flatMap(it => Array.from({length: it.qty||0}, () => ({
+                code: it.code, name: it.name, priceCents: it.priceCents
+              })))
+            : readCart().flatMap(it => Array.from({length: it.qty||0}, () => ({
+                code: it.code, name: it.name, priceCents: it.priceCents
+              }))));
 
       for (const it of sourceItems){
         const tkt = it.ticketId || ('TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4));
@@ -382,17 +406,26 @@
           files.push(new File([blob], `${CONFIG.event.id}_${tid}.png`, { type:'image/png' }));
           if (files.length>=10) break;
         }
-        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId}\nTickets attached (${files.length}).`;
+        const text = `🎟️ ${CONFIG.event.title}
+Order ${orderId}
+Tickets attached (${files.length}).`;
         if (files.length && navigator.canShare && navigator.canShare({ files })){
           await navigator.share({ files, title: `${CONFIG.event.title} tickets`, text });
           return;
         }
         if (!waNum){ alert('Invalid SA mobile for WhatsApp'); return; }
-        const encoded = encodeURIComponent(`${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`);
+        const encoded = encodeURIComponent(`${text}
+(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`);
         window.open(`https://wa.me/${waNum}?text=${encoded}`, '_blank');
       };
 
       qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
+
+      // Clean up saved snapshot after successful render
+      try {
+        localStorage.removeItem('ld_buyer');
+        localStorage.removeItem('ld_cart_snapshot');
+      } catch {}
     }
 
     // Test flow (no payment)
@@ -403,11 +436,9 @@
       const email     = emailEl.value.trim();
       const cellRaw   = qs('#buyerCell').value.trim();
       const cellFmt   = saFormatInternational(cellRaw);
-
       if (!firstName || !lastName){ showError('Please complete your name.'); return; }
       if (!emailEl.checkValidity()){ emailEl.reportValidity(); return; }
       if (!cellFmt){ showError('Enter a South African mobile like (+27) 82 123 4567'); return; }
-
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
       await generateTickets({ orderId, firstName, lastName, email, cellFmt });
     }
@@ -425,12 +456,30 @@
       cellEl.addEventListener('change', run);
       cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
 
-      // 1) Try to claim real tickets via webhook token
+      // 1) Preferred: claim tickets via webhook token
       if (await claimTicketsFromToken()) return;
 
-      // 2) Fallback: allow manual test flow if ?paid=1 (no real payment)
+      // 2) If returned with ?paid=1 but no token, render from saved snapshot
       const params = new URLSearchParams(location.search);
-      if (params.get('paid') === '1'){ testFlow(); }
+      if (params.get('paid') === '1') {
+        const saved = readSavedBuyer();
+        if (saved && saved.orderId) {
+          // Fill the form for UX and generate
+          qs('#firstName').value = saved.firstName || '';
+          qs('#lastName').value  = saved.lastName || '';
+          qs('#buyerEmail').value = saved.email || '';
+          qs('#buyerCell').value  = saved.cell || '';
+          await generateTickets({
+            orderId: saved.orderId,
+            firstName: saved.firstName || '',
+            lastName: saved.lastName || '',
+            email: saved.email || '',
+            cellFmt: saved.cell || ''
+          });
+          return;
+        }
+        showError('Payment confirmed. Please re-enter your details to display your tickets.');
+      }
     }
     document.addEventListener('DOMContentLoaded', boot, { once:true });
   })();
