@@ -76,8 +76,8 @@
         </div>
         <div class="mt-4 grid gap-2">
           <button id="payBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Pay with Yoco</button>
-          <button id="testBtn" class="px-5 py-3 rounded-xl border hover:bg-white">Test Flow (No Payment)</button>
-          <p class="text-xs text-slate-500">You’ll be redirected to Yoco to complete the payment in live mode.</p>
+          <button id="testBtn" class="px-5 py-3 rounded-xl border hover:bg-white" type="button">Test Flow (No Payment)</button>
+          <p class="text-xs text-slate-500">You’ll be redirected to Yoco to complete the payment.</p>
         </div>
       </aside>
     </section>
@@ -90,9 +90,9 @@
       </div>
       <div id="ticketsWrap" class="mt-3 text-sm"></div>
       <div class="mt-4 flex flex-wrap gap-2">
-        <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90">Download PNG Tickets</button>
-        <button id="shareAllBtn" class="px-5 py-3 rounded-xl border hover:bg-white">Share all via WhatsApp</button>
-        <button id="doneBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Done</button>
+        <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90" type="button">Download PNG Tickets</button>
+        <button id="shareAllBtn" class="px-5 py-3 rounded-xl border hover:bg-white" type="button">Share all via WhatsApp</button>
+        <button id="doneBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700" type="button">Done</button>
       </div>
     </section>
   </div>
@@ -116,11 +116,9 @@
         address: "40 Peter Place, Lyme Park, Sandton, 2191"
       },
       currency: 'ZAR',
-      // ===== IMPORTANT =====
-      // Set this to your deployed Vercel function URL:
-      // e.g. 'https://laudemdei-api.vercel.app/api/create-checkout'
-      API_URL: 'https://choir-tickets-cah82u1xa-laudemdeitickets-projects.vercel.app//api/create-checkout',
-      // Static fallback if API_URL is blank/unset
+      // Your deployed API (no double slash; points to root-level Vercel function)
+      API_URL: 'https://choir-tickets.vercel.app/api/checkout',
+      // Fallback static link if API is missing
       YOCO_PAYMENT_LINK: 'https://pay.yoco.com/laudem-dei',
       simulateTestFlow: false // set true to test without leaving page
     };
@@ -132,7 +130,7 @@
     const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
     const toHuman = (iso)=> new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
 
-    // Cart comes from localStorage (index.html wrote it), else default example
+    // Example cart (replace with your storage)
     const DEFAULT_TICKETS = [{code:'GEN', name:'General Admission', qty:1, priceCents:20000}];
     function readCart(){
       try{
@@ -178,21 +176,12 @@
       const ev = CONFIG.event;
       function toICSDate(iso){
         const d = new Date(iso);
-        // Convert to UTC format YYYYMMDDTHHMMSSZ
         const pad = (n)=> String(n).padStart(2,'0');
-        return d.getUTCFullYear()
-          + pad(d.getUTCMonth()+1)
-          + pad(d.getUTCDate())
-          + 'T'
-          + pad(d.getUTCHours())
-          + pad(d.getUTCMinutes())
-          + pad(d.getUTCSeconds())
-          + 'Z';
+        return d.getUTCFullYear() + pad(d.getUTCMonth()+1) + pad(d.getUTCDate())
+          + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
       }
       const ics = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//Laudem Dei//Tickets//EN',
+        'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Laudem Dei//Tickets//EN',
         'BEGIN:VEVENT',
         `UID:${ev.id}@laudemdei.org.za`,
         `DTSTAMP:${toICSDate(new Date().toISOString())}`,
@@ -201,8 +190,7 @@
         `SUMMARY:${ev.title}`,
         `DESCRIPTION:${ev.subtitle}`,
         `LOCATION:${ev.venue}, ${ev.address}`,
-        'END:VEVENT',
-        'END:VCALENDAR'
+        'END:VEVENT','END:VCALENDAR'
       ].join('\r\n');
       const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
       const a = document.createElement('a');
@@ -234,7 +222,7 @@
       box.classList.remove('hidden');
     }
 
-    // Start checkout via API or Payment Link
+    // === NEW: Start checkout (client → your API → Yoco) ===
     async function startCheckout(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
@@ -247,22 +235,19 @@
       if (!cellFmt){ showError('Enter a South African mobile like (+27) 82 123 4567'); return; }
       qs('#buyerCell').value = cellFmt;
 
-      const { total } = totals(items);
+      const { total } = totals(items); // cents
+      if (total < 100) { showError('Total must be at least R1.00'); return; }
+
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
 
-      // Update Test button label after starting live checkout (as requested)
-      const testBtn = qs('#testBtn');
-      testBtn.textContent = "I've paid – Generate Tickets";
+      // After payment, come back to this page with a flag; you can render tickets then
+      const successUrl = `${location.origin}${location.pathname}?paid=1&order=${encodeURIComponent(orderId)}`;
+      const cancelUrl  = `${location.origin}${location.pathname}?cancelled=1&order=${encodeURIComponent(orderId)}`;
+
+      qs('#testBtn').textContent = "I've paid – Generate Tickets";
 
       if (CONFIG.simulateTestFlow){
-        // Test-only path (no payment)
         await generateTickets({ orderId, firstName, lastName, email, cellFmt });
-        return;
-      }
-
-      if (!CONFIG.API_URL || CONFIG.API_URL.includes('YOUR-VERCEL-APP')){
-        // Fallback: static payment link
-        window.location.href = CONFIG.YOCO_PAYMENT_LINK;
         return;
       }
 
@@ -271,10 +256,11 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            amountInCents: total,
-            firstName, lastName, email,
-            items,
-            orderId
+            amountCents: total,
+            description: `${CONFIG.event.title} — ${items.map(i=>`${i.name}×${i.qty}`).join(', ')}`,
+            successUrl, cancelUrl,
+            meta: { orderId, eventId: CONFIG.event.id, buyer: { firstName, lastName, email, cell: cellFmt }, items }
+            // Optional: mode: 'test'
           })
         });
         if (!resp.ok){
@@ -283,7 +269,7 @@
         }
         const data = await resp.json();
         if (!data.redirectUrl) throw new Error('Missing redirectUrl from server');
-        window.location.href = data.redirectUrl; // go pay at Yoco
+        window.location.href = data.redirectUrl; // redirect to Yoco
       } catch (e){
         console.error(e);
         showError('Could not start Yoco checkout. ' + (e.message||''));
@@ -291,11 +277,10 @@
       }
     }
 
-    // Ticket generation (no map QR; PNG export + share)
+    // Ticket generation (unchanged; local render)
     async function generateTickets({ orderId, firstName, lastName, email, cellFmt }){
       const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
-      const generated = []; // keep QR data URLs if needed
-
+      const generated = [];
       for (const it of items){
         for (let i=0; i<it.qty; i++){
           const tkt = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
@@ -317,8 +302,6 @@
             <div id='qr_${tkt}' class='justify-self-end'></div>
           `;
           wrap.appendChild(row);
-
-          // QR payload (single QR only)
           const qrDiv = row.querySelector('#qr_'+tkt);
           const payload = JSON.stringify({
             order: orderId, ticket: tkt,
@@ -327,22 +310,12 @@
             firstName, lastName, email, cell: cellFmt
           });
           new QRCode(qrDiv, { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-
-          // capture as data url for potential use
-          setTimeout(()=>{
-            const img = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
-            let dataUrl = '';
-            if (img && img.tagName === 'IMG') dataUrl = img.src;
-            else if (img && img.toDataURL) dataUrl = img.toDataURL('image/png');
-            generated.push({ code: it.code, name: it.name, ticket_id: tkt, price_cents: it.priceCents, qr_png: dataUrl });
-          }, 40);
+          setTimeout(()=>{}, 40);
         }
       }
-
       qs('#orderIdOut').textContent = orderId;
       qs('#successWrap').classList.remove('hidden');
 
-      // PNG export (rounded border)
       qs('#pngBtn').onclick = async function(){
         const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to export.'); return; }
         for (const row of rows){
@@ -357,7 +330,6 @@
         }
       };
 
-      // Share-all via WhatsApp (fallback to text if files cannot be shared)
       qs('#shareAllBtn').onclick = async function(){
         const rows = qsa('#ticketsWrap > div'); if (!rows.length) { alert('No tickets to share.'); return; }
         const cellFmtNow = qs('#buyerCell').value.trim();
@@ -385,7 +357,7 @@
       qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
     }
 
-    // Test flow button
+    // Test flow (no payment)
     async function testFlow(){
       const firstName = qs('#firstName').value.trim();
       const lastName  = qs('#lastName').value.trim();
@@ -399,42 +371,22 @@
       await generateTickets({ orderId, firstName, lastName, email, cellFmt });
     }
 
-    // Boot
     function boot(){
-      // Render order
       renderOrder();
-
-      // Wire buttons
-      qs('#payBtn').addEventListener('click', startCheckout);
+      qs('#payBtn').addEventListener('click', (e)=>{ e.preventDefault(); startCheckout(); });
       qs('#testBtn').addEventListener('click', testFlow);
       qs('#icsBtn').addEventListener('click', downloadICS);
 
-      // SA formatter on blur
       const cellEl = qs('#buyerCell');
       const run = ()=>{ const f = saFormatInternational(cellEl.value); if (f){ cellEl.setCustomValidity(''); cellEl.value = f; } else { cellEl.setCustomValidity('Enter a South African mobile like (+27) 82 123 4567'); } };
       cellEl.addEventListener('blur', run);
       cellEl.addEventListener('change', run);
       cellEl.addEventListener('input', ()=>cellEl.setCustomValidity(''));
 
-      // If returning from Yoco with ?paid=1 (optional)
       const params = new URLSearchParams(location.search);
-      if (params.get('paid') === '1'){
-        // If you can pass back orderId via success URL params, read it here and render tickets.
-        // For now, generate a placeholder order to allow users to get tickets after payment.
-        testFlow();
-      }
+      if (params.get('paid') === '1'){ testFlow(); }
     }
     document.addEventListener('DOMContentLoaded', boot, { once:true });
-
-    // Dev sanity tests
-    (function selfTests(){
-      function ok(name, cond){ if(!cond) throw new Error('Self-test failed: '+name); }
-      ok('fmt', typeof fmt(20000) === 'string');
-      ok('saNormalize', saNormalizeNSN('082 123 4567') === '821234567');
-      ok('saFormat', saFormatInternational('0821234567') === '(+27) 82 123 4567');
-      console.log('✅ self-tests passed');
-    })();
-
   })();
   </script>
 </body>
