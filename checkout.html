@@ -202,7 +202,7 @@
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
-    // Render order
+    // Render order UI
     const items = readCart();
     function renderOrder(){
       const list = qs('#orderList'); list.innerHTML = '';
@@ -238,9 +238,6 @@
       const orderId = 'order_' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
       const successUrl = `${location.origin}${location.pathname}?paid=1&order=${encodeURIComponent(orderId)}`;
       const cancelUrl  = `${location.origin}${location.pathname}?cancelled=1&order=${encodeURIComponent(orderId)}`;
-
-      // Save minimal buyer info (for UI only; not used to generate tickets)
-      try { localStorage.setItem('ld_buyer', JSON.stringify({ orderId, firstName, lastName, email, cell: cellFmt })); } catch {}
 
       try{
         const resp = await fetch(CONFIG.API_URL, {
@@ -327,9 +324,11 @@
           </div>
           <div id='qr_${tkt}' class='justify-self-end'></div>
         `;
+        const qrDivId = 'qr_'+tkt;
+        const wrapEl = document.createElement('div');
         wrap.appendChild(row);
 
-        const qrDiv = row.querySelector('#qr_'+tkt);
+        const qrDiv = row.querySelector('#'+qrDivId);
         const payload = JSON.stringify({
           order: orderId, ticket: tkt,
           event: CONFIG.event.id, title: CONFIG.event.title,
@@ -373,16 +372,13 @@
           files.push(new File([blob], `${CONFIG.event.id}_${tid}.png`, { type:'image/png' }));
           if (files.length>=10) break;
         }
-        const text = `🎟️ ${CONFIG.event.title}
-Order ${orderId}
-Tickets attached (${files.length}).`;
+        const text = `🎟️ ${CONFIG.event.title}\nOrder ${orderId}\nTickets attached (${files.length}).`;
         if (files.length && navigator.canShare && navigator.canShare({ files })){
           await navigator.share({ files, title: `${CONFIG.event.title} tickets`, text });
           return;
         }
         if (!waNum){ alert('Invalid SA mobile for WhatsApp'); return; }
-        const encoded = encodeURIComponent(`${text}
-(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`);
+        const encoded = encodeURIComponent(`${text}\n(Your device cannot share files from the browser. Please download PNG and send via WhatsApp.)`);
         window.open(`https://wa.me/${waNum}?text=${encoded}`, '_blank');
       };
 
@@ -391,23 +387,7 @@ Tickets attached (${files.length}).`;
 
     // === BOOT ===
     async function boot(){
-      // Render order UI
-      const items = readCart();
-      (function renderOrder(){
-        const list = qs('#orderList'); list.innerHTML = '';
-        if (!items.length) list.innerHTML = '<p class="text-slate-500">No tickets.</p>';
-        for (const it of items){
-          const row = document.createElement('div');
-          row.className = 'flex items-center justify-between';
-          row.innerHTML = `<span>${it.name} × ${it.qty}</span><span>${fmt(it.priceCents*it.qty)}</span>`;
-          list.appendChild(row);
-        }
-        const { total } = totals(items);
-        qs('#total').textContent = fmt(total);
-        qs('#payBtn').disabled = !(total>0);
-      })();
-
-      // Wire controls
+      renderOrder();
       qs('#payBtn').addEventListener('click', (e)=>{ e.preventDefault(); startCheckout(); });
       qs('#icsBtn').addEventListener('click', downloadICS);
 
@@ -423,7 +403,7 @@ Tickets attached (${files.length}).`;
       // If user returned from Yoco without token, inform them
       const params = new URLSearchParams(location.search);
       if (params.get('paid') === '1') {
-        info('Payment successful. Your ticket link was generated and sent. Please open the link on this device to display your tickets.');
+        info('Payment successful. Your ticket link was generated and sent to your email. Please open the link on this device to display your tickets.');
       }
     }
     document.addEventListener('DOMContentLoaded', boot, { once:true });
