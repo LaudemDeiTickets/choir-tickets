@@ -1,64 +1,101 @@
-import crypto from "node:crypto";
+// /api/tickets/verify.js
+import crypto from "crypto";
 
+const ALLOW_ORIGIN = process.env.CORS_ORIGIN || "*";
+
+// base64url helpers
+function b64urlEncode(buf) {
+  return Buffer.from(buf).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
 function b64urlDecode(input) {
-  input = (input || "").replace(/-/g, "+").replace(/_/g, "/");
-  while (input.length % 4) input += "=";
-  return Buffer.from(input, "base64").toString();
+  const pad = (s) => s + "===".slice((s.length + 3) % 4);
+  const s = input.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(pad(s), "base64");
 }
-function expectedSig(data, secret) {
-  return Buffer.from(
-    crypto.createHmac("sha256", secret).update(data).digest("base64")
-  ).toString().replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+function timingSafeEq(a, b) {
+  const A = Buffer.from(a);
+  const B = Buffer.from(b);
+  if (A.length !== B.length) return false;
+  return crypto.timingSafeEqual(A, B);
 }
-function verifyWithSecrets(token, secrets) {
-  const [p, s] = (token || "").split(".");
-  if (!p || !s) throw new Error("Malformed token");
-  const data = b64urlDecode(p);
-  for (const sec of secrets) {
-    if (!sec) continue;
-    const exp = expectedSig(data, sec);
-    const a = Buffer.from(s);
-    const b = Buffer.from(exp);
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
-      const payload = JSON.parse(data);
-      const now = Date.now();
-      if (payload.exp && now > payload.exp) throw new Error("Token expired");
-      return payload;
-    }
+
+function verifyJWT(token, secret) {
+  if (!token || typeof token !== "string" || token.split(".").length !== 3) {
+    throw new Error("Malformed token");
   }
-  throw new Error("Invalid signature");
+  const [h, p, s] = token.split(".");
+  // recompute signature
+  const data = `${h}.${p}`;
+  const sig = crypto.createHmac("sha256", secret).update(data).digest();
+  const expected = b64urlEncode(sig);
+
+  if (!timingSafeEq(Buffer.from(s), Buffer.from(expected))) {
+    throw new Error("Invalid signature");
+  }
+
+  // decode & parse header/payload
+  let header, payload;
+  try {
+    header = JSON.parse(b64urlDecode(h).toString("utf8"));
+    payload = JSON.parse(b64urlDecode(p).toString("utf8"));
+  } catch {
+    throw new Error("Invalid payload");
+  }
+  if (header.alg !== "HS256" || header.typ !== "JWT") {
+    throw new Error("Unsupported token");
+  }
+
+  // iat/exp with 5 min skew
+  const now = Math.floor(Date.now() / 1000);
+  const skew = 300; // 5 minutes
+  if (typeof payload.iat === "number" && payload.iat > now + skew) {
+    throw new Error("Token not yet valid");
+  }
+  if (typeof payload.exp === "number" && payload.exp < now - skew) {
+    throw new Error("Token expired");
+  }
+
+  return payload;
 }
 
 export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  if (req.method === "OPTIONS") return res.status(204).end();
+
   try {
-    const ALLOW_ORIGIN = process.env.CORS_ORIGIN || "*";
-    res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    if (req.method === "OPTIONS") return res.status(204).end();
+    const secret = process.env.TICKET_SIGNING_SECRET || "";
+    if (!secret) return res.status(500).json({ ok:false, error:"Missing TICKET_SIGNING_SECRET" });
 
     let token = "";
     if (req.method === "GET") {
-      token = (req.query?.token || "").toString();
+      token = (req.query?.token || req.query?.t || "").toString();
     } else if (req.method === "POST") {
-      const chunks = [];
-      for await (const c of req) chunks.push(c);
-      const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
-      token = body.token || "";
+      token = (req.body?.token || "").toString();
     } else {
-      return res.status(405).json({ ok:false, error:"Method Not Allowed" });
+      return res.status(405).send("Method Not Allowed");
     }
 
-    if (!token) return res.status(400).json({ ok:false, error:"Missing token" });
+    if (!token) return res.status(400).json({ ok:false, error:"No token" });
 
-    const primary = process.env.TICKET_SIGNING_SECRET;
-    const legacy  = process.env.TICKET_SIGNING_SECRET_OLD;
-    if (!primary) return res.status(500).json({ ok:false, error:"Missing TICKET_SIGNING_SECRET" });
+    const payload = verifyJWT(token, secret);
 
-    const payload = verifyWithSecrets(token, [primary, legacy].filter(Boolean));
-    return res.status(200).json({ ok:true, payload });
+    // 👉 Optionally: also check this order is marked 'paid' in your DB/webhook storage
+    // const isPaid = await isOrderPaid(payload.orderId)
+    // if (!isPaid) return res.status(403).json({ ok:false, error:"Order not paid yet" });
+
+    return res.status(200).json({
+      ok: true,
+      tokenValid: true,
+      orderId: payload.orderId,
+      email: payload.email,
+      mode: payload.mode || "live",
+      iat: payload.iat,
+      exp: payload.exp
+    });
   } catch (e) {
-    console.error("verify error:", e?.message);
-    return res.status(400).json({ ok:false, error: e?.message || "Bad token" });
+    return res.status(400).json({ ok:false, error: e?.message || "Could not verify token" });
   }
 }
