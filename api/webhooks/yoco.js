@@ -1,16 +1,8 @@
 // /api/webhooks/yoco.js
+// NOTE: This webhook NO LONGER sends emails automatically.
+// It verifies the event and logs shape for debugging.
+// You can re-enable emailing by setting ALLOW_WEBHOOK_EMAIL=true.
 import crypto from "crypto";
-
-async function sendEmail({ apiKey, from, to, subject, html }) {
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html }),
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j?.message || "Resend send failed");
-  return j;
-}
 
 async function readRaw(req) {
   return await new Promise((resolve, reject) => {
@@ -59,6 +51,7 @@ export default async function handler(req, res) {
     const sigHeader = req.headers["webhook-signature"];
     const rawBody = await readRaw(req);
 
+    // Signature verify (supports TEST & LIVE)
     const secretLive = process.env.YOCO_WEBHOOK_SECRET_LIVE || process.env.YOCO_WEBHOOK_SECRET || "";
     const secretTest = process.env.YOCO_WEBHOOK_SECRET_TEST || "";
     if ((secretLive || secretTest) && id && ts && sigHeader) {
@@ -81,86 +74,16 @@ export default async function handler(req, res) {
       console.warn("[webhook] missing signature headers/secrets; skipping verification");
     }
 
+    // Parse + log event shape
     let evt = {};
     try { evt = JSON.parse(rawBody); } catch { return res.status(400).json({ received:false, error:"invalid-json" }); }
     console.log("[webhook] top-level keys:", Object.keys(evt || {}));
     console.log("[webhook] data keys:", Object.keys((evt && evt.data) || {}));
 
-    const mode = evt?.mode || "live";
-    const data = evt?.data || {};
+    // (Optional) you can mark your order as paid here using evt.data
+    // This file intentionally does NOT send email automatically.
 
-    const orderId =
-      data?.metadata?.orderId ||
-      data?.orderId ||
-      data?.checkout?.id ||
-      data?.payment?.id ||
-      evt?.id ||
-      "order_unknown";
-
-    const email =
-      data?.metadata?.buyer?.email ||
-      data?.buyer?.email ||
-      data?.customer?.email ||
-      data?.email ||
-      "";
-
-    const items = Array.isArray(data?.metadata?.items) ? data.metadata.items : [];
-    const eventInfo = {
-      id: data?.metadata?.eventId || "event",
-      title: data?.metadata?.eventTitle || "Event",
-      venue: data?.metadata?.eventVenue || data?.metadata?.venue || "",
-      address: data?.metadata?.eventAddress || data?.metadata?.address || "",
-      startISO: data?.metadata?.eventStartISO || data?.metadata?.startISO || "",
-    };
-    const buyer = {
-      firstName: data?.metadata?.buyer?.firstName || "",
-      lastName:  data?.metadata?.buyer?.lastName  || "",
-      email
-    };
-
-    if (!email) {
-      console.warn("[webhook] no buyer email in event", { orderId });
-      return res.status(200).json({ received:true, emailed:false, reason:"no-email-in-event", orderId });
-    }
-
-    const signSecret = process.env.TICKET_SIGNING_SECRET || "";
-    if (!signSecret) {
-      console.warn("[webhook] missing TICKET_SIGNING_SECRET");
-      return res.status(200).json({ received:true, emailed:false, reason:"no-signing-secret", orderId });
-    }
-
-    const now = Math.floor(Date.now()/1000), exp = now + 60*60;
-    const token = signJWT({
-      sub: "ticket-claim",
-      orderId, mode, items, event: eventInfo, buyer,
-      amountCents: Number(data?.metadata?.amountCents || 0),
-      iat: now, exp
-    }, signSecret);
-
-    const claimBase = process.env.CLAIM_BASE_URL || "https://laudemdeitickets.github.io/choir-tickets/ticket.html";
-    const claimUrl = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
-
-    const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-    const FROM_EMAIL = process.env.FROM_EMAIL || "";
-    if (!RESEND_API_KEY || !FROM_EMAIL) {
-      console.warn("[webhook] email not configured");
-      return res.status(200).json({ received:true, emailed:false, reason:"email-not-configured", orderId });
-    }
-
-    const subject = `Your tickets — ${eventInfo.title} (Order ${orderId})`;
-    const html = `
-      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;max-width:640px;margin:auto">
-        <h2>Payment received 🎟️</h2>
-        <p>Hi ${buyer.firstName || ""}, your tickets are ready.</p>
-        <p><a href="${claimUrl}" style="display:inline-block;background:#0ea5e9;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600">Open your tickets</a></p>
-        <p style="font-size:13px;color:#475569">Order: <strong>${orderId}</strong></p>
-        <p style="font-size:12px;color:#64748b;margin-top:18px">If the button doesn’t work, copy this link:<br/><a href="${claimUrl}">${claimUrl}</a></p>
-      </div>
-    `;
-    const respEmail = await sendEmail({ apiKey: RESEND_API_KEY, from: FROM_EMAIL, to: email, subject, html });
-    console.log("[webhook] email sent", { id: respEmail?.id, to: email, orderId, mode });
-
-    return res.status(200).json({ received:true, emailed:true, id: respEmail?.id, orderId, mode });
+    return res.status(200).json({ received:true, emailed:false, reason:"auto-email-disabled" });
   } catch (e) {
     console.error("[webhook] error", e?.message);
     return res.status(400).json({ received:false, error: e?.message || "bad-webhook" });
