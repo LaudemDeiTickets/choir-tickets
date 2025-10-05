@@ -12,11 +12,7 @@
   <style>
     html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
-    .hero-img {
-      background-size: cover;
-      background-position: center center;
-      background-repeat: no-repeat;
-    }
+    .hero-img { background-size: cover; background-position: center center; background-repeat: no-repeat; }
   </style>
 </head>
 <body class="bg-white text-slate-800">
@@ -27,7 +23,7 @@
         <!-- Left: Logo + Title -->
         <div class="flex items-center gap-4">
           <img
-            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=13"
+            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=14"
             alt="Laudem Dei Chamber Choir Logo"
             class="w-20 h-20 rounded-2xl ring-1 ring-slate-200 object-contain bg-white"
             crossorigin="anonymous"
@@ -80,6 +76,9 @@
       <a href="index.html" class="text-sm underline hover:no-underline">All events</a>
     </div>
 
+    <!-- Status / errors -->
+    <div id="status" class="mt-4 text-sm text-slate-500">Loading events…</div>
+
     <div id="eventsGrid" class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       <!-- Cards injected here -->
     </div>
@@ -96,35 +95,14 @@
   </footer>
 
   <script>
-    // ===== Editable data: add/update your events here =====
-    // Use ISO strings with timezone for accuracy (Africa/Johannesburg is +02:00).
-    const EVENTS = [
-      {
-        id: "choir-2025-spring-concert",
-        title: "Spring Serenade Concert",
-        subtitle: "An evening of choral gems",
-        startISO: "2025-10-11T18:30:00+02:00",
-        endISO:   "2025-10-11T20:00:00+02:00",
-        venue: "St. Stithians Chapel",
-        address: "40 Peter Place, Lyme Park, Sandton, 2191",
-        // Optional per-event image; falls back to hero if omitted
-        image: "https://raw.githubusercontent.com/LaudemDeiTickets/choir-tickets/main/backdrop.jpg",
-        // Where the "Buy Tickets" button should go:
-        href: "index.html"
-      },
-      // Add more events below:
-      // {
-      //   id: "christmas-2025",
-      //   title: "Christmas by Candlelight",
-      //   subtitle: "Carols old and new",
-      //   startISO: "2025-12-15T19:00:00+02:00",
-      //   endISO:   "2025-12-15T21:00:00+02:00",
-      //   venue: "St. John's Church",
-      //   address: "123 Church St, Johannesburg",
-      //   image: "https://raw.githubusercontent.com/LaudemDeiTickets/choir-tickets/main/backdrop.jpg",
-      //   href: "index.html"
-      // },
-    ];
+    // ===== Configure your Google Sheet here =====
+    // 1) Publish the sheet: File -> Share -> Publish to web (publish the 'Events' tab)
+    // 2) Copy the Sheet ID (the long string after /d/ in the sheet URL)
+    // 3) Ensure SHEET_NAME matches your published tab
+    const SHEET_ID   = "PASTE_YOUR_SHEET_ID_HERE";
+    const SHEET_NAME = "Events"; // tab (sheet) name
+    // gviz JSON endpoint (doesn't require an API key)
+    const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
     // ===== Utilities =====
     function fmtDate(iso){
@@ -141,7 +119,8 @@
       return events
         .filter(ev => {
           const t = Date.parse(ev.startISO || "");
-          return !isNaN(t) && t >= now - (60*60*1000); // keep events starting within last hour (grace)
+          const active = (String(ev.active || "").toLowerCase() === "true" || ev.active === true);
+          return active && !isNaN(t) && t >= now - (60*60*1000); // keep events starting within last hour (grace)
         })
         .sort((a,b) => Date.parse(a.startISO) - Date.parse(b.startISO));
     }
@@ -173,14 +152,75 @@
       return el;
     }
 
-    function render(){
+    // Parse the Google "gviz" JSON (it wraps JSON in a JS function call)
+    function parseGviz(text){
+      // gviz returns: "/*O_o*/\ngoogle.visualization.Query.setResponse(<json>);"
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start === -1 || end === -1) throw new Error("Unexpected GVIZ payload");
+      return JSON.parse(text.slice(start, end + 1));
+    }
+
+    // Convert gviz table to array of objects using header labels
+    function tableToObjects(gviz){
+      const cols = (gviz.table.cols || []).map(c => (c.label || c.id || "").trim());
+      return (gviz.table.rows || []).map(r => {
+        const obj = {};
+        (r.c || []).forEach((cell, i) => {
+          const key = cols[i] || ("col" + i);
+          // prefer formatted value (f) when available, fallback to v
+          let val = (cell && (cell.f != null ? cell.f : cell.v)) ?? "";
+          // Normalize booleans represented as strings
+          if (typeof val === "string" && ["true","false"].includes(val.toLowerCase())) {
+            val = val.toLowerCase() === "true";
+          }
+          obj[key] = val;
+        });
+        return obj;
+      });
+    }
+
+    async function fetchEvents(){
+      const status = document.getElementById("status");
+      try{
+        status.textContent = "Loading events…";
+        const res = await fetch(GVIZ_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        const json = parseGviz(text);
+        let rows = tableToObjects(json);
+
+        // Expected headers: id, title, subtitle, startISO, endISO, venue, address, image, href, active
+        // If your column names differ, update the mapping here.
+        const events = rows.map(r => ({
+          id:       r.id || "",
+          title:    r.title || "",
+          subtitle: r.subtitle || "",
+          startISO: r.startISO || r.start || "",
+          endISO:   r.endISO || r.end || "",
+          venue:    r.venue || r.location || "",
+          address:  r.address || r.addr || "",
+          image:    r.image || "",
+          href:     r.href || "index.html",
+          active:   (r.active === true || String(r.active).toLowerCase() === "true")
+        }));
+
+        renderEvents(events);
+        status.textContent = "";
+      } catch (e){
+        console.error(e);
+        status.textContent = "Could not load events. Please refresh.";
+      }
+    }
+
+    function renderEvents(events){
       document.getElementById('yr').textContent = new Date().getFullYear();
 
       const grid = document.getElementById('eventsGrid');
       const empty = document.getElementById('emptyState');
       grid.innerHTML = "";
 
-      const list = upcomingOnly(EVENTS);
+      const list = upcomingOnly(events);
       if (!list.length){
         empty.classList.remove('hidden');
         return;
@@ -192,7 +232,7 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', render, { once: true });
+    document.addEventListener('DOMContentLoaded', fetchEvents, { once: true });
   </script>
 </body>
 </html>
