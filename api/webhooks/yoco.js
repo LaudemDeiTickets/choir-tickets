@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { sendEmail } from "../_lib/sendEmail.js";
 import { buildTicketEmail } from "../_lib/ticketEmailTemplate.js";
+import { renderTicketPng } from "../_lib/renderTicketPng.js";
 
 async function readRaw(req) {
   return await new Promise((resolve, reject) => {
@@ -58,10 +59,12 @@ export default async function handler(req, res) {
       if (!ok) return res.status(403).json({ received:false, error:"Invalid signature" });
     }
 
+    // Parse event
     let event = {};
     try { event = JSON.parse(rawBody); } catch { return res.status(400).json({ received:false, error:"Invalid JSON" }); }
     mode = event?.mode || mode;
 
+    // Metadata from checkout
     const md = event?.data?.metadata || {};
     const orderId = md?.orderId || event?.data?.id || ("order_" + Date.now());
     const buyer = md?.buyer || {};
@@ -69,9 +72,11 @@ export default async function handler(req, res) {
     const evInfo = {
       id: md?.eventId || "event",
       title: md?.title || "Event",
+      subtitle: md?.subtitle || "",
       startISO: md?.startISO,
       venue: md?.venue,
-      address: md?.address
+      address: md?.address,
+      orderId
     };
 
     // Build signed item list
@@ -110,16 +115,34 @@ export default async function handler(req, res) {
     const baseCheckout = process.env.CLAIM_BASE_URL || "https://laudemdeitickets.github.io/choir-tickets/checkout.html";
     const claimUrl = `${baseCheckout}?paid=1&token=${encodeURIComponent(token)}`;
 
-    // Email the buyer (do not fail webhook if email fails)
+    const orgName = process.env.ORG_NAME || "Laudem Dei Chamber Choir";
+    const logoUrl = process.env.LOGO_URL || "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg";
+
+    // Optional PNG attachment (first ticket)
+    let attachments = [];
+    if (process.env.ATTACH_PNG === "1" && signedItems.length) {
+      try {
+        const png = await renderTicketPng({
+          orgName, logoUrl,
+          event: evInfo,
+          buyer,
+          item: signedItems[0]
+        });
+        const base64 = Buffer.from(png).toString("base64");
+        attachments.push({ filename: `${signedItems[0].ticketId}.png`, content: base64, contentType: "image/png" });
+      } catch (e) {
+        console.error("render png error:", e?.message);
+      }
+    }
+
+    // Email the buyer
     let emailStatus = "skipped";
     if (buyer?.email) {
       try {
         const { html, text, subject } = buildTicketEmail({
-          orgName: process.env.ORG_NAME || "Laudem Dei Chamber Choir",
-          event: evInfo,
-          claimUrl
+          orgName, event: evInfo, claimUrl, withAttachment: attachments.length > 0
         });
-        await sendEmail({ to: buyer.email, subject, html, text });
+        await sendEmail({ to: buyer.email, subject, html, text, attachments });
         emailStatus = "sent";
       } catch (e) {
         console.error("email error:", e?.message);
@@ -127,7 +150,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ received: true, mode, orderId, issued: true, claimUrl, token, emailStatus });
+    return res.status(200).json({ received: true, mode, orderId, issued: true, claimUrl, token, emailStatus, attached: attachments.length });
   } catch (e) {
     return res.status(400).json({ received:false, error: e?.message || "Bad webhook" });
   }
