@@ -21,7 +21,7 @@
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3">
         <!-- Cache-busted logo -->
-        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=5"
+        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=6"
              alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
              crossorigin="anonymous" referrerpolicy="no-referrer">
         <div>
@@ -48,11 +48,13 @@
         <p class="font-semibold">Tickets ready</p>
         <p class="text-sm">Order <span id="orderIdOut"></span> — Download or share your ticket(s).</p>
       </div>
+
       <div id="ticketsWrap" class="mt-3 text-sm"></div>
 
       <div class="mt-4 flex flex-wrap gap-2">
         <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90" type="button">Download PNG</button>
         <button id="shareAllBtn" class="px-5 py-3 rounded-xl border hover:bg-white" type="button">Share all</button>
+        <button id="icsBtn" class="px-5 py-3 rounded-xl border hover:bg-white" type="button">Add to Calendar (.ics)</button>
         <a id="whatsFallback" class="px-5 py-3 rounded-xl border hover:bg-white hidden" target="_blank" rel="noopener">Open WhatsApp</a>
         <button id="doneBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700" type="button">Done</button>
       </div>
@@ -71,6 +73,48 @@
     function showError(msg){ const b=qs('#errBox'); b.textContent=msg||'Error'; b.classList.remove('hidden'); }
     function onlyDigits(s){ return String(s||'').replace(/[^0-9]+/g,''); }
     function toWhatsAppNum(input){ const d=onlyDigits(input); if(!d) return ''; if(d.startsWith('27')) return d; if(d.startsWith('0')) return '27'+d.slice(1); return d; }
+
+    // ---- Calendar (.ics) helpers ----
+    function toICSDate(iso) {
+      const d = new Date(iso);
+      const pad = (n)=> String(n).padStart(2,'0');
+      return d.getUTCFullYear()
+        + pad(d.getUTCMonth()+1)
+        + pad(d.getUTCDate())
+        + 'T'
+        + pad(d.getUTCHours())
+        + pad(d.getUTCMinutes())
+        + pad(d.getUTCSeconds())
+        + 'Z';
+    }
+    function downloadICSFromEvent(ev) {
+      if (!ev || !ev.startISO) { alert('Missing event details.'); return; }
+      const start = new Date(ev.startISO);
+      const endISO = ev.endISO || new Date(start.getTime() + 2 * 60 * 60 * 1000).toISOString(); // +2h default
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Laudem Dei//Tickets//EN',
+        'BEGIN:VEVENT',
+        `UID:${(ev.id || 'event') + '@laudemdei.org.za'}`,
+        `DTSTAMP:${toICSDate(new Date().toISOString())}`,
+        `DTSTART:${toICSDate(ev.startISO)}`,
+        `DTEND:${toICSDate(endISO)}`,
+        `SUMMARY:${(ev.title || 'Event').replace(/\r?\n/g,' ')}`,
+        `DESCRIPTION:${(ev.subtitle || '').replace(/\r?\n/g,' ')}`,
+        `LOCATION:${[(ev.venue||''), (ev.address||'')].filter(Boolean).join(', ').replace(/\r?\n/g,' ')}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+
+      const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(ev.id || 'event')}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
 
     // ===== verify token on server =====
     async function loadFromToken(){
@@ -101,15 +145,15 @@
       const buyer = payload.buyer || {};
       const items = Array.isArray(payload.items) ? payload.items : [];
 
-      // Header summary (now includes full address)
+      // Header summary (+ address)
       qs('#orderIdOut').textContent = payload.orderId || '—';
       qs('#evTitle').textContent = ev.title || 'Event';
       qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue].filter(Boolean).join(' • ');
       qs('#evAddr').textContent = ev.address || '';
       qs('#eventBox').classList.remove('hidden');
 
-      // Force-refresh the logo everywhere (header + tickets)
-      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=5';
+      // Force-refresh the logo everywhere
+      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=6';
       const headerLogo = qs('#orgLogo'); if (headerLogo) headerLogo.src = logoUrl;
 
       // Build each ticket card (event + address printed on the ticket)
@@ -201,8 +245,15 @@
       const ev = ctx?.payload?.event || {};
       const dlBtn = qs('#pngBtn');
       const shareBtn = qs('#shareAllBtn');
+      const icsBtn = qs('#icsBtn');
       const waFallback = qs('#whatsFallback');
 
+      // Add to Calendar
+      if (icsBtn) {
+        icsBtn.onclick = () => downloadICSFromEvent(ev);
+      }
+
+      // Download PNG(s)
       dlBtn.onclick = async function(){
         const files = await captureTicketPNGs();
         if (!files.length) { alert('No tickets to export.'); return; }
@@ -215,6 +266,7 @@
         }
       };
 
+      // Share all (native → fallback)
       shareBtn.onclick = async function(){
         try{
           const files = await captureTicketPNGs();
@@ -230,7 +282,7 @@
             return;
           }
 
-          // Fallback: WhatsApp with claim link
+          // Fallback: WhatsApp with claim link (no file attach via wa.me)
           const params = new URLSearchParams(location.search);
           const token = params.get('token') || '';
           const claimUrl = token ? `${location.origin}${location.pathname}?paid=1&token=${encodeURIComponent(token)}` : location.href;
