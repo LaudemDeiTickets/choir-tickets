@@ -1,23 +1,22 @@
 // /api/webhooks/yoco.js
 import crypto from "crypto";
 
-// ---- Resend sender ----
 async function sendEmail({ apiKey, from, to, subject, html }) {
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html })
+    body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html }),
   });
-  const j = await r.json().catch(()=> ({}));
+  const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.message || "Resend send failed");
   return j;
 }
 
-// ---- helpers ----
 async function readRaw(req) {
   return await new Promise((resolve, reject) => {
-    let data = ""; req.setEncoding("utf8");
-    req.on("data", c => data += c);
+    let data = "";
+    req.setEncoding("utf8");
+    req.on("data", (c) => (data += c));
     req.on("end", () => resolve(data));
     req.on("error", reject);
   });
@@ -28,12 +27,13 @@ function computeSig(base64Secret, signedContent) {
   return crypto.createHmac("sha256", key).update(signedContent).digest("base64");
 }
 function safeEq(a, b) {
-  const A = Buffer.from(a || ""); const B = Buffer.from(b || "");
+  const A = Buffer.from(a || "");
+  const B = Buffer.from(b || "");
   if (A.length !== B.length) return false;
   return crypto.timingSafeEqual(A, B);
 }
 function b64url(buf) {
-  return Buffer.from(buf).toString("base64").replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
+  return Buffer.from(buf).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 function signJWT(payloadObj, secret) {
   const header = { alg: "HS256", typ: "JWT" };
@@ -59,7 +59,6 @@ export default async function handler(req, res) {
     const sigHeader = req.headers["webhook-signature"];
     const rawBody = await readRaw(req);
 
-    // Verify signature (both TEST & LIVE supported)
     const secretLive = process.env.YOCO_WEBHOOK_SECRET_LIVE || process.env.YOCO_WEBHOOK_SECRET || "";
     const secretTest = process.env.YOCO_WEBHOOK_SECRET_TEST || "";
     if ((secretLive || secretTest) && id && ts && sigHeader) {
@@ -82,20 +81,14 @@ export default async function handler(req, res) {
       console.warn("[webhook] missing signature headers/secrets; skipping verification");
     }
 
-    // Parse JSON
     let evt = {};
-    try { evt = JSON.parse(rawBody); } catch {
-      return res.status(400).json({ received:false, error:"invalid-json" });
-    }
-
-    // 🔎 Log the event shape so we can see real fields
+    try { evt = JSON.parse(rawBody); } catch { return res.status(400).json({ received:false, error:"invalid-json" }); }
     console.log("[webhook] top-level keys:", Object.keys(evt || {}));
     console.log("[webhook] data keys:", Object.keys((evt && evt.data) || {}));
 
     const mode = evt?.mode || "live";
     const data = evt?.data || {};
 
-    // Try to find identifiers in multiple known places
     const orderId =
       data?.metadata?.orderId ||
       data?.orderId ||
@@ -104,7 +97,6 @@ export default async function handler(req, res) {
       evt?.id ||
       "order_unknown";
 
-    // Try several places for buyer email
     const email =
       data?.metadata?.buyer?.email ||
       data?.buyer?.email ||
@@ -112,7 +104,6 @@ export default async function handler(req, res) {
       data?.email ||
       "";
 
-    // Items/event info (best-effort)
     const items = Array.isArray(data?.metadata?.items) ? data.metadata.items : [];
     const eventInfo = {
       id: data?.metadata?.eventId || "event",
@@ -132,13 +123,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ received:true, emailed:false, reason:"no-email-in-event", orderId });
     }
 
-    // Build claim token
     const signSecret = process.env.TICKET_SIGNING_SECRET || "";
     if (!signSecret) {
       console.warn("[webhook] missing TICKET_SIGNING_SECRET");
       return res.status(200).json({ received:true, emailed:false, reason:"no-signing-secret", orderId });
     }
-    const now = Math.floor(Date.now()/1000), exp = now + 60*60; // 60 min
+
+    const now = Math.floor(Date.now()/1000), exp = now + 60*60;
     const token = signJWT({
       sub: "ticket-claim",
       orderId, mode, items, event: eventInfo, buyer,
@@ -149,13 +140,13 @@ export default async function handler(req, res) {
     const claimBase = process.env.CLAIM_BASE_URL || "https://laudemdeitickets.github.io/choir-tickets/ticket.html";
     const claimUrl = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
 
-    // Send email via Resend
     const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
     const FROM_EMAIL = process.env.FROM_EMAIL || "";
     if (!RESEND_API_KEY || !FROM_EMAIL) {
       console.warn("[webhook] email not configured");
       return res.status(200).json({ received:true, emailed:false, reason:"email-not-configured", orderId });
     }
+
     const subject = `Your tickets — ${eventInfo.title} (Order ${orderId})`;
     const html = `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;max-width:640px;margin:auto">
@@ -166,10 +157,10 @@ export default async function handler(req, res) {
         <p style="font-size:12px;color:#64748b;margin-top:18px">If the button doesn’t work, copy this link:<br/><a href="${claimUrl}">${claimUrl}</a></p>
       </div>
     `;
-    const resp = await sendEmail({ apiKey: RESEND_API_KEY, from: FROM_EMAIL, to: email, subject, html });
-    console.log("[webhook] email sent", { id: resp?.id, to: email, orderId, mode });
+    const respEmail = await sendEmail({ apiKey: RESEND_API_KEY, from: FROM_EMAIL, to: email, subject, html });
+    console.log("[webhook] email sent", { id: respEmail?.id, to: email, orderId, mode });
 
-    return res.status(200).json({ received:true, emailed:true, id: resp?.id, orderId, mode });
+    return res.status(200).json({ received:true, emailed:true, id: respEmail?.id, orderId, mode });
   } catch (e) {
     console.error("[webhook] error", e?.message);
     return res.status(400).json({ received:false, error: e?.message || "bad-webhook" });
