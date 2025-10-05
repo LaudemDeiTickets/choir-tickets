@@ -14,15 +14,9 @@
   <style>
     html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
-
-    /* Ticket card look */
     .ticket-card{
-      background:#fff;
-      border:2px solid #e2e8f0;         /* thicker border */
-      border-radius:16px;                /* rounded corners */
-      box-shadow:0 8px 20px rgba(2,132,199,0.08);
-      overflow:hidden;                   /* keep QR neatly inside */
-      padding:16px;
+      background:#fff;border:2px solid #e2e8f0;border-radius:16px;
+      box-shadow:0 8px 20px rgba(2,132,199,0.08);overflow:hidden;padding:16px;
     }
   </style>
 </head>
@@ -30,8 +24,7 @@
   <div class="max-w-3xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <!-- Cache-busted logo -->
-        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=7"
+        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=8"
              alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
              crossorigin="anonymous" referrerpolicy="no-referrer">
         <div>
@@ -79,10 +72,52 @@
     // ===== helpers =====
     const qs = (s,r)=> (r||document).querySelector(s);
     const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
-    const toHuman = (iso)=> iso ? new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : '';
+    const toHuman = (iso)=> {
+      if(!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d.valueOf())) return '';
+      return new Intl.DateTimeFormat(undefined,{
+        weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'
+      }).format(d);
+    };
     function showError(msg){ const b=qs('#errBox'); b.textContent=msg||'Error'; b.classList.remove('hidden'); }
     function onlyDigits(s){ return String(s||'').replace(/[^0-9]+/g,''); }
     function toWhatsAppNum(input){ const d=onlyDigits(input); if(!d) return ''; if(d.startsWith('27')) return d; if(d.startsWith('0')) return '27'+d.slice(1); return d; }
+    const nvl = (a,b)=> (a==null || a==='' ? b : a);
+
+    // Normalize event object from various shapes
+    function normalizeEvent(raw){
+      const ev = raw?.event || raw?.meta?.event || raw?.claim?.event || {};
+      // try multiple keys for the start time
+      let startISO = ev.startISO || ev.dateISO || ev.start || ev.startTime || null;
+      if (!startISO && (typeof ev.startTs === 'number')) startISO = new Date(ev.startTs).toISOString();
+      // venue fallback
+      const venue = nvl(ev.venue, ev.location);
+      // address fallback
+      const address = ev.address || ev.addr || '';
+      // title fallback
+      const title = ev.title || raw?.title || 'Event';
+      // id fallback
+      const id = ev.id || raw?.eventId || 'event';
+      // potential end
+      const endISO = ev.endISO || ev.end || null;
+      const subtitle = ev.subtitle || '';
+      return { id, title, subtitle, startISO, endISO, venue, address };
+    }
+
+    // Normalize items (tickets) array
+    function normalizeItems(raw){
+      const arr = Array.isArray(raw?.items) ? raw.items :
+                  Array.isArray(raw?.lineItems) ? raw.lineItems : [];
+      // ensure shape {name, qty, priceCents}
+      return arr.map(it => ({
+        name: it.name || it.title || 'Admission',
+        qty: Number.isFinite(it.qty) ? it.qty : (Number.isFinite(it.quantity) ? it.quantity : 1),
+        priceCents: Number.isFinite(it.priceCents) ? it.priceCents :
+                    (Number.isFinite(it.unitAmount) ? it.unitAmount : 0),
+        code: it.code || it.sku || 'GEN'
+      }));
+    }
 
     // ---- Calendar (.ics) helpers ----
     function toICSDate(iso) {
@@ -138,9 +173,18 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
         });
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) throw new Error(data?.error || ('verify '+resp.status));
-        return { token, payload: data };
+        const raw = await resp.json();
+        if (!resp.ok || !raw.ok) throw new Error(raw?.error || ('verify '+resp.status));
+
+        // Different backends might return {ok:true, ...payload} or {ok:true, payload:{...}}
+        const payload = raw.payload || raw;
+
+        // normalize shapes
+        const ev = normalizeEvent(payload);
+        const items = normalizeItems(payload);
+        const buyer = payload.buyer || payload.customer || payload.meta?.buyer || {};
+
+        return { token, payload: { ...payload, event: ev, items, buyer } };
       } catch(e){
         console.error(e);
         showError('Could not verify ticket link. ' + (e.message||''));
@@ -149,24 +193,30 @@
     }
 
     // ===== render tickets =====
-    function renderTickets({ payload }){
-      const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
+    function renderTickets(ctx){
+      const payload = ctx.payload || {};
       const ev = payload.event || {};
       const buyer = payload.buyer || {};
       const items = Array.isArray(payload.items) ? payload.items : [];
 
       // Header summary (+ address)
-      qs('#orderIdOut').textContent = payload.orderId || '—';
+      qs('#orderIdOut').textContent = payload.orderId || payload.order_id || '—';
+
+      const when = toHuman(ev.startISO);
+      const where = ev.venue || '';
+      const addr  = ev.address || '';
+
       qs('#evTitle').textContent = ev.title || 'Event';
-      qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue].filter(Boolean).join(' • ');
-      qs('#evAddr').textContent = ev.address || '';
+      qs('#evMeta').textContent = [when, where].filter(Boolean).join(' • ') || 'Details to follow';
+      qs('#evAddr').textContent = addr;
       qs('#eventBox').classList.remove('hidden');
 
-      // Force-refresh the logo everywhere
-      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=7';
+      // Logo (cache-bust)
+      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=8';
       const headerLogo = qs('#orgLogo'); if (headerLogo) headerLogo.src = logoUrl;
 
-      // Build each ticket card (event + address printed on the ticket)
+      // Tickets
+      const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
       for (const it of items){
         const qty = Math.max(1, Number(it.qty||1));
         for (let i=0; i<qty; i++){
@@ -186,13 +236,14 @@
               </div>
 
               <div class='mt-2 text-[13px]'>
-                <div class='text-slate-700'><span class='font-medium'>When:</span> ${toHuman(ev.startISO) || '—'}</div>
-                <div class='text-slate-700'><span class='font-medium'>Where:</span> ${ev.venue || '—'}</div>
-                <div class='text-slate-500 text-[12px]'>${ev.address || ''}</div>
+                <div class='text-slate-700'><span class='font-medium'>When:</span> ${when || '—'}</div>
+                <div class='text-slate-700'><span class='font-medium'>Where:</span> ${where || '—'}</div>
+                <div class='text-slate-500 text-[12px]'>${addr}</div>
               </div>
 
               <div class='mt-2 text-[12px] text-slate-500'>
-                Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}
+                Buyer: ${(buyer.firstName||buyer.first_name||'')} ${(buyer.lastName||buyer.last_name||'')}
+                ${buyer.cell ? ' • ' + buyer.cell : ''}
               </div>
             </div>
             <div id='qr_${tkt}' class='justify-self-end'></div>
@@ -201,13 +252,16 @@
 
           // QR payload
           const qrDiv = row.querySelector('#qr_'+tkt);
-          const payloadForQR = {
-            order: payload.orderId, ticket: tkt,
+          const qrPayload = {
+            order: payload.orderId || payload.order_id,
+            ticket: tkt,
             event: ev.id, title: ev.title,
             dateISO: ev.startISO, venue: ev.venue, address: ev.address,
-            firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email, cell: buyer.cell
+            firstName: buyer.firstName || buyer.first_name,
+            lastName:  buyer.lastName  || buyer.last_name,
+            email:     buyer.email, cell: buyer.cell
           };
-          new QRCode(qrDiv, { text: JSON.stringify(payloadForQR), width:120, height:120, correctLevel: QRCode.CorrectLevel.M });
+          new QRCode(qrDiv, { text: JSON.stringify(qrPayload), width:120, height:120, correctLevel: QRCode.CorrectLevel.M });
         }
       }
 
@@ -221,32 +275,27 @@
       const files = [];
       let i=0;
       for (const row of rows){
-        // Directly capture; card is already styled nicely
         const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true });
         const blob = await new Promise(res=> canvas.toBlob(b=>res(b), 'image/png'));
         if (!blob) continue;
         const tid = row.dataset.ticketId || `ticket_${++i}`;
         files.push(new File([blob], `choir-ticket_${tid}.png`, { type:'image/png' }));
-        if (files.length >= 10) break; // practical limit
+        if (files.length >= 10) break;
       }
       return files;
     }
 
     // ===== wire buttons =====
     function wireActions(ctx){
-      const buyer = ctx?.payload?.buyer || {};
       const ev = ctx?.payload?.event || {};
+      const buyer = ctx?.payload?.buyer || {};
       const dlBtn = qs('#pngBtn');
       const shareBtn = qs('#shareAllBtn');
       const icsBtn = qs('#icsBtn');
       const waFallback = qs('#whatsFallback');
 
-      // Add to Calendar
-      if (icsBtn) {
-        icsBtn.onclick = () => downloadICSFromEvent(ev);
-      }
+      if (icsBtn) icsBtn.onclick = () => downloadICSFromEvent(ev);
 
-      // Download PNG(s)
       dlBtn.onclick = async function(){
         const files = await captureTicketPNGs();
         if (!files.length) { alert('No tickets to export.'); return; }
@@ -259,33 +308,21 @@
         }
       };
 
-      // Share all (native → fallback)
       shareBtn.onclick = async function(){
         try{
           const files = await captureTicketPNGs();
           if (!files.length) { alert('No tickets to share.'); return; }
-
-          // Native share sheet with files (Windows/Edge/Chrome)
           if (navigator.canShare && navigator.canShare({ files })){
-            await navigator.share({
-              files,
-              title: ev?.title || 'Your tickets',
-              text: 'Your tickets are attached.'
-            });
+            await navigator.share({ files, title: ev?.title || 'Your tickets', text: 'Your tickets are attached.' });
             return;
           }
-
-          // Fallback: WhatsApp with claim link (no file attach via wa.me)
           const params = new URLSearchParams(location.search);
           const token = params.get('token') || '';
           const claimUrl = token ? `${location.origin}${location.pathname}?paid=1&token=${encodeURIComponent(token)}` : location.href;
-          const text = `🎟️ ${ev?.title || 'Your tickets'}\nOrder ${ctx?.payload?.orderId || ''}\n${claimUrl}`;
+          const text = `🎟️ ${ev?.title || 'Your tickets'}${ctx?.payload?.orderId ? `\nOrder ${ctx.payload.orderId}` : ''}\n${claimUrl}`;
           const waNum = toWhatsAppNum(buyer?.cell || '');
-          const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(text)}`
-                             : `https://wa.me/?text=${encodeURIComponent(text)}`;
-          waFallback.href = wurl;
-          waFallback.classList.remove('hidden');
-          waFallback.click();
+          const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+          const a = qs('#whatsFallback'); a.href = wurl; a.classList.remove('hidden'); a.click();
         } catch(e){
           console.error(e);
           alert('Sharing not supported on this device. We’ll download PNGs so you can share manually.');
