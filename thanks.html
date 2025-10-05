@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Thanks — Payment Received</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#475569;--brand:#0ea5e9;--ok:#10b981;--bd:#e2e8f0}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+    body{background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:0 12px 40px rgba(2,132,199,.08);max-width:640px;width:100%;padding:24px}
+    h1{margin:0 0 8px 0;font-size:22px}
+    p{margin:8px 0;color:var(--muted)}
+    .badge{display:inline-block;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.3);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;margin-bottom:10px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+    .btn{appearance:none;border:1px solid var(--bd);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .meta{margin-top:12px;font-size:12px;color:var(--muted)}
+    code{background:#f1f5f9;border:1px solid var(--bd);padding:2px 6px;border-radius:6px}
+    a{color:var(--brand);text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="badge">Payment received</div>
+    <h1>Thanks! We’re emailing your tickets.</h1>
+    <p id="desc">Please check your inbox for a message with your secure ticket link. This can take up to a couple of minutes. If it doesn’t arrive, check your spam folder or contact support.</p>
+
+    <div class="row">
+      <button id="openTickets" class="btn primary" disabled>Open tickets</button>
+      <button id="refresh" class="btn">Refresh</button>
+      <a id="homeLink" class="btn" href="./index.html">Back to tickets</a>
+      <a id="supportLink" class="btn" href="#" target="_blank" rel="noopener">Contact support</a>
+    </div>
+
+    <div class="meta">
+      <div>Order ID: <code id="orderBox">—</code></div>
+      <div>Email: <code id="emailBox">—</code></div>
+    </div>
+  </main>
+
+<script>
+(function(){
+  const qs = (s, r)=> (r||document).querySelector(s);
+  const params = new URLSearchParams(location.search);
+
+  const order = params.get('order') || '';
+  const email = params.get('email') || '';
+  const token = params.get('token') || ''; // if you ever pass it directly
+  const claimBase = params.get('claimBase') || 'ticket.html'; // override target if needed
+
+  qs('#orderBox').textContent = order || '—';
+  qs('#emailBox').textContent = email || '—';
+
+  // Support (mailto) prefilled
+  const subj = encodeURIComponent(`Ticket support — Order ${order||''}`.trim());
+  const body = encodeURIComponent(`Hi Laudem Dei Tickets,\n\nI completed payment but haven't received my ticket email yet.\n\nOrder: ${order||'-'}\nEmail: ${email||'-'}\n\nThanks!`);
+  const support = (params.get('support') || 'mailto:tickets@yourdomain.com') + `?subject=${subj}&body=${body}`;
+  qs('#supportLink').href = support;
+
+  // If a token is present, enable "Open tickets" button to direct link
+  const btn = qs('#openTickets');
+  if (token){
+    btn.disabled = false;
+    const url = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
+    btn.onclick = ()=> { location.href = url; };
+  } else {
+    // Otherwise, keep disabled; edit the description mildly
+    qs('#desc').innerHTML = 'We\'ll email a secure link to your tickets shortly. Once you receive it, you can open it on any device. If you used the wrong email, please contact support.';
+  }
+
+  // Refresh button (handy if they expect the token to arrive via query string)
+  qs('#refresh').onclick = ()=> location.reload();
+})();
+</script>
+</body>
+</html>
