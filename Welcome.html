@@ -23,7 +23,7 @@
         <!-- Left: Logo + Title -->
         <div class="flex items-center gap-4">
           <img
-            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=14"
+            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=15"
             alt="Laudem Dei Chamber Choir Logo"
             class="w-20 h-20 rounded-2xl ring-1 ring-slate-200 object-contain bg-white"
             crossorigin="anonymous"
@@ -95,14 +95,14 @@
   </footer>
 
   <script>
-    // ===== Configure your Google Sheet here =====
-    // 1) Publish the sheet: File -> Share -> Publish to web (publish the 'Events' tab)
-    // 2) Copy the Sheet ID (the long string after /d/ in the sheet URL)
-    // 3) Ensure SHEET_NAME matches your published tab
-    const SHEET_ID   = "PASTE_YOUR_SHEET_ID_HERE";
-    const SHEET_NAME = "Events"; // tab (sheet) name
-    // gviz JSON endpoint (doesn't require an API key)
-    const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+    // ===== Your published Google Sheet (Publish to web) =====
+    // You gave this pubhtml link:
+    // https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pubhtml
+    // We convert it to a CSV endpoint for the tab (gid). Default gid=0; override with ?gid=YOUR_GID in the page URL.
+    const PUB_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv";
+    const params = new URLSearchParams(location.search);
+    const GID = params.get("gid") || "0"; // change per-sheet-tab if needed
+    const CSV_URL = `${PUB_BASE}/pub?gid=${encodeURIComponent(GID)}&single=true&output=csv`;
 
     // ===== Utilities =====
     function fmtDate(iso){
@@ -119,7 +119,7 @@
       return events
         .filter(ev => {
           const t = Date.parse(ev.startISO || "");
-          const active = (String(ev.active || "").toLowerCase() === "true" || ev.active === true);
+          const active = (String(ev.active || "").toLowerCase() === "true" || ev.active === true || ev.active === "TRUE");
           return active && !isNaN(t) && t >= now - (60*60*1000); // keep events starting within last hour (grace)
         })
         .sort((a,b) => Date.parse(a.startISO) - Date.parse(b.startISO));
@@ -152,64 +152,69 @@
       return el;
     }
 
-    // Parse the Google "gviz" JSON (it wraps JSON in a JS function call)
-    function parseGviz(text){
-      // gviz returns: "/*O_o*/\ngoogle.visualization.Query.setResponse(<json>);"
-      const start = text.indexOf("{");
-      const end = text.lastIndexOf("}");
-      if (start === -1 || end === -1) throw new Error("Unexpected GVIZ payload");
-      return JSON.parse(text.slice(start, end + 1));
+    // ===== CSV parsing (robust, handles commas/quotes/newlines) =====
+    function parseCSV(text) {
+      const rows = [];
+      let cur = [], val = "", inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i], next = text[i+1];
+        if (inQuotes) {
+          if (ch === '"' && next === '"') { val += '"'; i++; }
+          else if (ch === '"') { inQuotes = false; }
+          else { val += ch; }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === ',') { cur.push(val.trim()); val = ""; }
+          else if (ch === '\n') { cur.push(val.trim()); rows.push(cur); cur = []; val = ""; }
+          else if (ch === '\r') { /* ignore */ }
+          else { val += ch; }
+        }
+      }
+      if (val.length || cur.length) { cur.push(val.trim()); rows.push(cur); }
+      return rows;
     }
 
-    // Convert gviz table to array of objects using header labels
-    function tableToObjects(gviz){
-      const cols = (gviz.table.cols || []).map(c => (c.label || c.id || "").trim());
-      return (gviz.table.rows || []).map(r => {
-        const obj = {};
-        (r.c || []).forEach((cell, i) => {
-          const key = cols[i] || ("col" + i);
-          // prefer formatted value (f) when available, fallback to v
-          let val = (cell && (cell.f != null ? cell.f : cell.v)) ?? "";
-          // Normalize booleans represented as strings
-          if (typeof val === "string" && ["true","false"].includes(val.toLowerCase())) {
-            val = val.toLowerCase() === "true";
-          }
-          obj[key] = val;
-        });
-        return obj;
+    function rowsToObjects(rows) {
+      if (!rows.length) return [];
+      const headers = rows[0].map(h => (h || "").trim());
+      return rows.slice(1).map(r => {
+        const o = {};
+        headers.forEach((h, i) => o[h] = r[i] ?? "");
+        return o;
       });
+    }
+
+    function normalizeEvents(objs){
+      // Expected headers: id, title, subtitle, startISO, endISO, venue, address, image, href, active
+      return objs.map(r => ({
+        id:       r.id || "",
+        title:    r.title || "",
+        subtitle: r.subtitle || "",
+        startISO: r.startISO || r.start || "",
+        endISO:   r.endISO || r.end || "",
+        venue:    r.venue || r.location || "",
+        address:  r.address || r.addr || "",
+        image:    r.image || "",
+        href:     r.href || "index.html",
+        active:   (String(r.active || "").toLowerCase() === "true" || r.active === true || r.active === "TRUE")
+      }));
     }
 
     async function fetchEvents(){
       const status = document.getElementById("status");
       try{
         status.textContent = "Loading events…";
-        const res = await fetch(GVIZ_URL, { cache: "no-store" });
+        const res = await fetch(CSV_URL, { cache: "no-store" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const text = await res.text();
-        const json = parseGviz(text);
-        let rows = tableToObjects(json);
-
-        // Expected headers: id, title, subtitle, startISO, endISO, venue, address, image, href, active
-        // If your column names differ, update the mapping here.
-        const events = rows.map(r => ({
-          id:       r.id || "",
-          title:    r.title || "",
-          subtitle: r.subtitle || "",
-          startISO: r.startISO || r.start || "",
-          endISO:   r.endISO || r.end || "",
-          venue:    r.venue || r.location || "",
-          address:  r.address || r.addr || "",
-          image:    r.image || "",
-          href:     r.href || "index.html",
-          active:   (r.active === true || String(r.active).toLowerCase() === "true")
-        }));
-
+        const rows = parseCSV(text);
+        const raw  = rowsToObjects(rows);
+        const events = normalizeEvents(raw);
         renderEvents(events);
         status.textContent = "";
-      } catch (e){
+      } catch (e) {
         console.error(e);
-        status.textContent = "Could not load events. Please refresh.";
+        status.textContent = "Could not load events. Make sure the sheet is published and the gid is correct.";
       }
     }
 
