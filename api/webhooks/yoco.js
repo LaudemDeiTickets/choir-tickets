@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { sendEmail } from "../_lib/sendEmail.js";
+import { buildTicketEmail } from "../_lib/ticketEmailTemplate.js";
 
 async function readRaw(req) {
   return await new Promise((resolve, reject) => {
@@ -72,6 +74,7 @@ export default async function handler(req, res) {
       address: md?.address
     };
 
+    // Build signed item list
     const now = Date.now();
     const signedItems = [];
     for (const it of itemsRaw) {
@@ -82,6 +85,7 @@ export default async function handler(req, res) {
       }
     }
 
+    // Token payload
     const payload = {
       iss: "laudemdei.tickets",
       iat: now,
@@ -103,12 +107,27 @@ export default async function handler(req, res) {
     const sig = crypto.createHmac("sha256", signingSecret).update(data).digest("base64");
     const token = b64url(data) + "." + b64url(sig);
 
-    const claimUrl = `https://laudemdeitickets.github.io/choir-tickets/checkout.html?paid=1&token=${encodeURIComponent(token)}`;
+    const baseCheckout = process.env.CLAIM_BASE_URL || "https://laudemdeitickets.github.io/choir-tickets/checkout.html";
+    const claimUrl = `${baseCheckout}?paid=1&token=${encodeURIComponent(token)}`;
 
-    console.log("Ticket claim URL:", claimUrl);
-    console.log("Ticket token debug:", { len: token.length, head: token.slice(0, 16), dotIndex: token.indexOf(".") });
+    // Email the buyer (do not fail webhook if email fails)
+    let emailStatus = "skipped";
+    if (buyer?.email) {
+      try {
+        const { html, text, subject } = buildTicketEmail({
+          orgName: process.env.ORG_NAME || "Laudem Dei Chamber Choir",
+          event: evInfo,
+          claimUrl
+        });
+        await sendEmail({ to: buyer.email, subject, html, text });
+        emailStatus = "sent";
+      } catch (e) {
+        console.error("email error:", e?.message);
+        emailStatus = "failed";
+      }
+    }
 
-    return res.status(200).json({ received: true, mode, orderId, issued: true, claimUrl, token });
+    return res.status(200).json({ received: true, mode, orderId, issued: true, claimUrl, token, emailStatus });
   } catch (e) {
     return res.status(400).json({ received:false, error: e?.message || "Bad webhook" });
   }
