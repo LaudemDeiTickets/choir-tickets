@@ -1,5 +1,4 @@
 // /api/checkout.js
-// Generates a signed claim token and appends it to successUrl so thanks.html can open tickets immediately.
 import crypto from "crypto";
 
 function b64url(buf) {
@@ -38,22 +37,55 @@ export default async function handler(req, res) {
     if (!/^https:\/\//.test(successUrl||"") || !/^https:\/\//.test(cancelUrl||""))
       return res.status(400).json({ ok:false, error:"successUrl/cancelUrl must be HTTPS" });
 
-    // Build a claim token now so thanks.html can open "ticket.html?token=..."
+    // 🟩 Sign a richer claim token so ticket.html can render:
     const secret = process.env.TICKET_SIGNING_SECRET || "";
-    if (!secret) console.warn("[checkout] TICKET_SIGNING_SECRET missing; token will be omitted.");
     let successUrlFinal = successUrl;
     let claimToken = null;
+
     try {
       if (secret) {
         const now = Math.floor(Date.now()/1000);
-        const exp = now + 30*60; // 30 minutes validity (webhook will still verify payment)
-        const orderId = meta?.orderId || "order_" + Math.random().toString(36).slice(2,10);
-        const email = meta?.buyer?.email || "";
-        const payload = { sub: "ticket-claim", orderId, email, mode: isTest ? "test" : "live", iat: now, exp };
+        const exp = now + 30*60; // 30 min
+        const orderId = meta?.orderId || ("order_" + Math.random().toString(36).slice(2,10));
+
+        // Keep only the fields needed to render:
+        const safeItems = (meta?.items || []).map(i => ({
+          code: i.code, name: i.name, qty: i.qty|0, priceCents: i.priceCents|0
+        })).slice(0, 20); // cap
+
+        const safeEvent = {
+          id: meta?.eventId || "event",
+          title: meta?.eventTitle || "Event",
+          venue: meta?.eventVenue || (meta?.venue || ""),
+          address: meta?.eventAddress || (meta?.address || ""),
+          startISO: meta?.eventStartISO || meta?.startISO || "",
+        };
+
+        const safeBuyer = {
+          firstName: meta?.buyer?.firstName || "",
+          lastName:  meta?.buyer?.lastName  || "",
+          email:     meta?.buyer?.email     || "",
+          cell:      meta?.buyer?.cell      || ""
+        };
+
+        const payload = {
+          sub: "ticket-claim",
+          orderId,
+          mode: isTest ? "test" : "live",
+          items: safeItems,
+          event: safeEvent,
+          buyer: safeBuyer,
+          amountCents,
+          iat: now, exp
+        };
+
         claimToken = signJWT(payload, secret);
+
         const url = new URL(successUrl);
         url.searchParams.set("token", claimToken);
         successUrlFinal = url.toString();
+      } else {
+        console.warn("[checkout] TICKET_SIGNING_SECRET missing; token not added.");
       }
     } catch (e) {
       console.warn("[checkout] token generation failed:", e?.message);
