@@ -1,3 +1,20 @@
+// /api/checkout.js
+// Generates a signed claim token and appends it to successUrl so thanks.html can open tickets immediately.
+import crypto from "crypto";
+
+function b64url(buf) {
+  return Buffer.from(buf).toString("base64").replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
+}
+function signJWT(payloadObj, secret) {
+  const header = { alg: "HS256", typ: "JWT" };
+  const encHeader = b64url(JSON.stringify(header));
+  const encPayload = b64url(JSON.stringify(payloadObj));
+  const data = `${encHeader}.${encPayload}`;
+  const sig = crypto.createHmac("sha256", secret).update(data).digest();
+  const encSig = b64url(sig);
+  return `${data}.${encSig}`;
+}
+
 export default async function handler(req, res) {
   const ALLOW_ORIGIN = process.env.CORS_ORIGIN || "*";
   res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
@@ -21,13 +38,34 @@ export default async function handler(req, res) {
     if (!/^https:\/\//.test(successUrl||"") || !/^https:\/\//.test(cancelUrl||""))
       return res.status(400).json({ ok:false, error:"successUrl/cancelUrl must be HTTPS" });
 
+    // Build a claim token now so thanks.html can open "ticket.html?token=..."
+    const secret = process.env.TICKET_SIGNING_SECRET || "";
+    if (!secret) console.warn("[checkout] TICKET_SIGNING_SECRET missing; token will be omitted.");
+    let successUrlFinal = successUrl;
+    let claimToken = null;
+    try {
+      if (secret) {
+        const now = Math.floor(Date.now()/1000);
+        const exp = now + 30*60; // 30 minutes validity (webhook will still verify payment)
+        const orderId = meta?.orderId || "order_" + Math.random().toString(36).slice(2,10);
+        const email = meta?.buyer?.email || "";
+        const payload = { sub: "ticket-claim", orderId, email, mode: isTest ? "test" : "live", iat: now, exp };
+        claimToken = signJWT(payload, secret);
+        const url = new URL(successUrl);
+        url.searchParams.set("token", claimToken);
+        successUrlFinal = url.toString();
+      }
+    } catch (e) {
+      console.warn("[checkout] token generation failed:", e?.message);
+    }
+
     const r = await fetch("https://payments.yoco.com/api/checkouts", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         amount: amountCents,
         currency: "ZAR",
-        successUrl,
+        successUrl: successUrlFinal,
         cancelUrl,
         description: description || "Order",
         metadata: { ...(meta || {}), mode: isTest ? "test" : "live" }
@@ -44,6 +82,7 @@ export default async function handler(req, res) {
       redirectUrl: p.redirectUrl || p.url,
       yocoSuccessUrl: p.successUrl || null,
       yocoCancelUrl:  p.cancelUrl  || null,
+      claimToken: claimToken || null,
       mode: isTest ? "test" : "live"
     });
   } catch (e) {
