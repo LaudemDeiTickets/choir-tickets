@@ -14,6 +14,16 @@
   <style>
     html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
+
+    /* Ticket card look */
+    .ticket-card{
+      background:#fff;
+      border:2px solid #e2e8f0;         /* thicker border */
+      border-radius:16px;                /* rounded corners */
+      box-shadow:0 8px 20px rgba(2,132,199,0.08);
+      overflow:hidden;                   /* keep QR neatly inside */
+      padding:16px;
+    }
   </style>
 </head>
 <body class="bg-white text-slate-800">
@@ -21,7 +31,7 @@
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3">
         <!-- Cache-busted logo -->
-        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=6"
+        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=7"
              alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
              crossorigin="anonymous" referrerpolicy="no-referrer">
         <div>
@@ -100,12 +110,12 @@
         `DTSTAMP:${toICSDate(new Date().toISOString())}`,
         `DTSTART:${toICSDate(ev.startISO)}`,
         `DTEND:${toICSDate(endISO)}`,
-        `SUMMARY:${(ev.title || 'Event').replace(/\\r?\\n/g,' ')}`,
-        `DESCRIPTION:${(ev.subtitle || '').replace(/\\r?\\n/g,' ')}`,
-        `LOCATION:${[(ev.venue||''), (ev.address||'')].filter(Boolean).join(', ').replace(/\\r?\\n/g,' ')}`,
+        `SUMMARY:${(ev.title || 'Event').replace(/\r?\n/g,' ')}`,
+        `DESCRIPTION:${(ev.subtitle || '').replace(/\r?\n/g,' ')}`,
+        `LOCATION:${[(ev.venue||''), (ev.address||'')].filter(Boolean).join(', ').replace(/\r?\n/g,' ')}`,
         'END:VEVENT',
         'END:VCALENDAR'
-      ].join('\\r\\n');
+      ].join('\r\n');
 
       const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
       const a = document.createElement('a');
@@ -153,7 +163,7 @@
       qs('#eventBox').classList.remove('hidden');
 
       // Force-refresh the logo everywhere
-      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=6';
+      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=7';
       const headerLogo = qs('#orgLogo'); if (headerLogo) headerLogo.src = logoUrl;
 
       // Build each ticket card (event + address printed on the ticket)
@@ -162,7 +172,7 @@
         for (let i=0; i<qty; i++){
           const tkt = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
           const row = document.createElement('div');
-          row.className = 'grid grid-cols-[1fr,120px] gap-4 border border-slate-200 rounded-xl px-4 py-4 mt-3 items-center';
+          row.className = 'ticket-card grid grid-cols-[1fr,120px] gap-4 mt-3 items-center';
           row.setAttribute('data-ticket-id', tkt);
           row.innerHTML = `
             <div>
@@ -211,25 +221,8 @@
       const files = [];
       let i=0;
       for (const row of rows){
-        // beautify for export
-        const prev = { backgroundColor: row.style.backgroundColor, borderRadius: row.style.borderRadius, border: row.style.border, boxShadow: row.style.boxShadow, overflow: row.style.overflow, padding: row.style.padding };
-        row.style.backgroundColor = '#ffffff';
-        row.style.borderRadius = '16px';
-        row.style.border = '2px solid #e2e8f0';
-        row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)';
-        row.style.overflow = 'hidden';
-        row.style.padding = row.style.padding || '12px 16px';
-
+        // Directly capture; card is already styled nicely
         const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true });
-
-        // revert
-        row.style.backgroundColor = prev.backgroundColor;
-        row.style.borderRadius = prev.borderRadius;
-        row.style.border = prev.border;
-        row.style.boxShadow = prev.boxShadow;
-        row.style.overflow = prev.overflow;
-        row.style.padding = prev.padding;
-
         const blob = await new Promise(res=> canvas.toBlob(b=>res(b), 'image/png'));
         if (!blob) continue;
         const tid = row.dataset.ticketId || `ticket_${++i}`;
