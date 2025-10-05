@@ -60,7 +60,7 @@
   (function(){
     'use strict';
 
-    // --- helpers ---
+    // ===== helpers =====
     const qs = (s,r)=> (r||document).querySelector(s);
     const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
     const toHuman = (iso)=> iso ? new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : '';
@@ -68,7 +68,7 @@
     function onlyDigits(s){ return String(s||'').replace(/[^0-9]+/g,''); }
     function toWhatsAppNum(input){ const d=onlyDigits(input); if(!d) return ''; if(d.startsWith('27')) return d; if(d.startsWith('0')) return '27'+d.slice(1); return d; }
 
-    // --- read token & verify on server ---
+    // ===== verify token on server =====
     async function loadFromToken(){
       const params = new URLSearchParams(location.search);
       const token = params.get('token') || params.get('t');
@@ -81,15 +81,16 @@
           body: JSON.stringify({ token })
         });
         const data = await resp.json();
-        if (!resp.ok || !data.ok) throw new Error(data?.error || ('verify ' + resp.status));
+        if (!resp.ok || !data.ok) throw new Error(data?.error || ('verify '+resp.status));
         return { token, payload: data };
       } catch(e){
+        console.error(e);
         showError('Could not verify ticket link. ' + (e.message||''));
         return null;
       }
     }
 
-    // --- render tickets ---
+    // ===== render tickets =====
     function renderTickets({ payload }){
       const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
       const ev = payload.event || {};
@@ -98,12 +99,11 @@
 
       // header
       qs('#orderIdOut').textContent = payload.orderId || '—';
-      const evBox = qs('#eventBox');
       qs('#evTitle').textContent = ev.title || 'Event';
       qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue, ev.address].filter(Boolean).join(' • ');
-      evBox.classList.remove('hidden');
+      qs('#eventBox').classList.remove('hidden');
 
-      // build cards from items
+      // generate ticket rows
       const logoUrl = 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg';
       for (const it of items){
         const qty = Math.max(1, Number(it.qty||1));
@@ -127,25 +127,23 @@
           `;
           wrap.appendChild(row);
 
+          // QR payload
           const qrDiv = row.querySelector('#qr_'+tkt);
-          const payload = {
+          const payloadForQR = {
             order: payload.orderId, ticket: tkt,
             event: ev.id, title: ev.title,
             dateISO: ev.startISO, venue: ev.venue, address: ev.address,
             firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email, cell: buyer.cell
           };
-          new QRCode(qrDiv, { text: JSON.stringify(payload), width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+          new QRCode(qrDiv, { text: JSON.stringify(payloadForQR), width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
         }
       }
 
       qs('#successWrap').classList.remove('hidden');
-
-      // Share hint
-      const hint = qs('#shareHint');
-      hint.textContent = 'Tip: On Windows/Edge you’ll see the native Share panel (WhatsApp, Outlook, etc.).';
+      qs('#shareHint').textContent = 'Tip: On Windows/Edge the native Share panel lets you send PNGs to WhatsApp, Outlook, etc.';
     }
 
-    // --- capture all ticket cards as PNG Files ---
+    // ===== capture all ticket cards as PNG Files =====
     async function captureTicketPNGs(){
       const rows = qsa('#ticketsWrap > div');
       const files = [];
@@ -173,18 +171,18 @@
         const blob = await new Promise(res=> canvas.toBlob(b=>res(b), 'image/png'));
         if (!blob) continue;
         const tid = row.dataset.ticketId || `ticket_${++i}`;
-        files.push(new File([blob], `choir-2025-spring-concert_${tid}.png`, { type:'image/png' }));
+        files.push(new File([blob], `choir-ticket_${tid}.png`, { type:'image/png' }));
         if (files.length >= 10) break; // practical limit
       }
       return files;
     }
 
-    // --- wire buttons: Download PNG + Share all (native) ---
-    function wireActions(payload){
-      const buyer = payload?.buyer || {};
-      const ev = payload?.event || {};
-      const shareBtn = qs('#shareAllBtn');
+    // ===== wire buttons =====
+    function wireActions(ctx){
+      const buyer = ctx?.payload?.buyer || {};
+      const ev = ctx?.payload?.event || {};
       const dlBtn = qs('#pngBtn');
+      const shareBtn = qs('#shareAllBtn');
       const waFallback = qs('#whatsFallback');
 
       dlBtn.onclick = async function(){
@@ -204,6 +202,7 @@
           const files = await captureTicketPNGs();
           if (!files.length) { alert('No tickets to share.'); return; }
 
+          // Native share sheet with files (Windows/Edge/Chrome)
           if (navigator.canShare && navigator.canShare({ files })){
             await navigator.share({
               files,
@@ -213,19 +212,20 @@
             return;
           }
 
-          // Fallback: wa.me with claim link (no file attach via wa.me)
+          // Fallback: WhatsApp with claim link
           const params = new URLSearchParams(location.search);
           const token = params.get('token') || '';
           const claimUrl = token ? `${location.origin}${location.pathname}?paid=1&token=${encodeURIComponent(token)}` : location.href;
-          const text = `🎟️ ${ev?.title || 'Your tickets'}\nOrder ${payload?.orderId || ''}\n${claimUrl}`;
+          const text = `🎟️ ${ev?.title || 'Your tickets'}\nOrder ${ctx?.payload?.orderId || ''}\n${claimUrl}`;
           const waNum = toWhatsAppNum(buyer?.cell || '');
-          const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+          const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(text)}`
+                             : `https://wa.me/?text=${encodeURIComponent(text)}`;
           waFallback.href = wurl;
           waFallback.classList.remove('hidden');
           waFallback.click();
         } catch(e){
           console.error(e);
-          alert('Sharing is not supported on this device. We’ll download PNGs so you can share them manually.');
+          alert('Sharing not supported on this device. We’ll download PNGs so you can share manually.');
           dlBtn.click();
         }
       };
@@ -233,12 +233,12 @@
       qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
     }
 
-    // --- boot ---
+    // ===== boot =====
     (async function boot(){
       const ctx = await loadFromToken();
       if (!ctx) return;
       renderTickets(ctx);
-      wireActions(ctx.payload);
+      wireActions(ctx);
     })();
   })();
   </script>
