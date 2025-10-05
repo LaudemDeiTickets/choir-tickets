@@ -23,7 +23,7 @@
         <!-- Left: Logo (40x40) + Title -->
         <div class="flex items-center gap-4">
           <img
-            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=17"
+            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=18"
             alt="Laudem Dei Chamber Choir Logo"
             class="w-10 h-10 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
             crossorigin="anonymous"
@@ -91,9 +91,45 @@
     </div>
   </main>
 
-  <!-- Footer -->
-  <footer class="max-w-6xl mx-auto px-4 py-8 text-xs text-slate-500">
-    © <span id="yr"></span> Laudem Dei Chamber Choir. All rights reserved.
+  <!-- Footer with social links -->
+  <footer class="border-t border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="text-xs text-slate-500">
+        © <span id="yr"></span> Laudem Dei Chamber Choir. All rights reserved.
+      </p>
+
+      <div class="flex items-center gap-4">
+        <!-- Instagram -->
+        <a
+          href="https://instagram.com/your_instagram_handle"
+          target="_blank" rel="noopener"
+          class="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900"
+          aria-label="Instagram"
+          title="Instagram"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="5" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>
+          </svg>
+          <span class="text-sm">Instagram</span>
+        </a>
+
+        <!-- Facebook -->
+        <a
+          href="https://facebook.com/your_facebook_page"
+          target="_blank" rel="noopener"
+          class="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900"
+          aria-label="Facebook"
+          title="Facebook"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13.5 22v-8h2.6l.4-3h-3v-1.9c0-.9.3-1.5 1.7-1.5H16V4.1C15.7 4 14.8 4 13.8 4 11.4 4 9.8 5.4 9.8 8v3H7v3h2.8v8h3.7z"/>
+          </svg>
+          <span class="text-sm">Facebook</span>
+        </a>
+      </div>
+    </div>
   </footer>
 
   <script>
@@ -101,6 +137,8 @@
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=2017023192&single=true&output=csv";
 
     // ===== Utilities =====
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
     function fmtDate(iso){
       const d = new Date(iso);
       if (isNaN(d)) return "";
@@ -215,8 +253,6 @@
     }
 
     function renderEvents(events){
-      document.getElementById('yr').textContent = new Date().getFullYear();
-
       const grid = document.getElementById('eventsGrid');
       const empty = document.getElementById('emptyState');
       grid.innerHTML = "";
