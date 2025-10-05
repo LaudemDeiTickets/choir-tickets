@@ -6,7 +6,7 @@
   <title>Thanks — Payment Received</title>
   <meta name="robots" content="noindex">
   <style>
-    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#475569;--brand:#0ea5e9;--ok:#10b981;--bd:#e2e8f0}
+    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#475569;--brand:#0ea5e9;--bd:#e2e8f0}
     html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
     body{background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
     .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:0 12px 40px rgba(2,132,199,.08);max-width:680px;width:100%;padding:24px}
@@ -19,10 +19,7 @@
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .meta{margin-top:12px;font-size:12px;color:var(--muted)}
     code{background:#f1f5f9;border:1px solid var(--bd);padding:2px 6px;border-radius:6px}
-    a{color:var(--brand);text-decoration:none}
-    a:hover{text-decoration:underline}
     .hint{font-size:12px;color:#475569;margin-top:6px}
-    .ok{color:#065f46}
     .err{color:#991b1b}
   </style>
 </head>
@@ -30,12 +27,10 @@
   <main class="card">
     <div class="badge">Payment received</div>
     <h1>Thanks! Your tickets are ready.</h1>
-    <p>Open your tickets now or email yourself a secure link.</p>
+    <p>Open your tickets now.</p>
 
     <div class="row">
       <button id="openTickets" class="btn primary" disabled>Open tickets</button>
-      <button id="emailTickets" class="btn" disabled>Email tickets</button>
-      <a class="btn" href="./index.html">Back to tickets</a>
     </div>
 
     <div class="hint" id="hint"></div>
@@ -44,7 +39,7 @@
       <div>Order ID: <code id="orderBox">—</code></div>
       <div>Email: <code id="emailBox">—</code></div>
       <div id="statusBox" class="hint"></div>
-      <div class="hint">If you updated this page and still see an older version, hard-refresh or append <code>&v=2</code> to the URL.</div>
+      <div class="hint">If you updated this page and still see an older version, hard-refresh or append <code>&v=3</code> to the URL.</div>
     </div>
   </main>
 
@@ -56,45 +51,21 @@
   const order = params.get('order') || '';
   const email = params.get('email') || '';
   const token = params.get('token') || '';
-  const claimBase = params.get('claimBase') || 'ticket.html'; // change if your ticket page lives elsewhere
+  const claimBase = params.get('claimBase') || 'ticket.html'; // change if your tickets live elsewhere
 
   qs('#orderBox').textContent = order || '—';
   qs('#emailBox').textContent = email || '—';
 
   const openBtn = qs('#openTickets');
-  const mailBtn = qs('#emailTickets');
   const hint = qs('#hint');
-  const statusBox = qs('#statusBox');
 
   if (token) {
     openBtn.disabled = false;
-    mailBtn.disabled = false;
-
     const ticketUrl = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
     openBtn.onclick = () => { location.href = ticketUrl; };
-
-    mailBtn.onclick = async () => {
-      statusBox.textContent = "Sending email…";
-      try {
-        const resp = await fetch('https://choir-tickets.vercel.app/api/email/claim', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ token })
-        });
-        const j = await resp.json().catch(()=> ({}));
-        if (!resp.ok || !j.ok) {
-          statusBox.innerHTML = "<span class='err'>Could not send email: " + (j?.error || resp.status) + "</span>";
-        } else {
-          statusBox.innerHTML = "<span class='ok'>Email sent!</span>";
-        }
-      } catch {
-        statusBox.innerHTML = "<span class='err'>Network error sending email</span>";
-      }
-    };
-
-    hint.textContent = "Token detected — you can open or email your tickets now.";
+    hint.textContent = "Token detected — you can open your tickets now.";
   } else {
-    hint.textContent = "No token present in URL. If you completed payment, use the link from Yoco or contact support.";
+    hint.innerHTML = "<span class='err'>No token present in URL. If you completed payment, use the link from Yoco or contact support.</span>";
   }
 })();
 </script>
