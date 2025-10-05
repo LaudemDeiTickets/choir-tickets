@@ -100,12 +100,12 @@
         `DTSTAMP:${toICSDate(new Date().toISOString())}`,
         `DTSTART:${toICSDate(ev.startISO)}`,
         `DTEND:${toICSDate(endISO)}`,
-        `SUMMARY:${(ev.title || 'Event').replace(/\r?\n/g,' ')}`,
-        `DESCRIPTION:${(ev.subtitle || '').replace(/\r?\n/g,' ')}`,
-        `LOCATION:${[(ev.venue||''), (ev.address||'')].filter(Boolean).join(', ').replace(/\r?\n/g,' ')}`,
+        `SUMMARY:${(ev.title || 'Event').replace(/\\r?\\n/g,' ')}`,
+        `DESCRIPTION:${(ev.subtitle || '').replace(/\\r?\\n/g,' ')}`,
+        `LOCATION:${[(ev.venue||''), (ev.address||'')].filter(Boolean).join(', ').replace(/\\r?\\n/g,' ')}`,
         'END:VEVENT',
         'END:VCALENDAR'
-      ].join('\r\n');
+      ].join('\\r\\n');
 
       const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
       const a = document.createElement('a');
