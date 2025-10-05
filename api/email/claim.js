@@ -1,4 +1,5 @@
 // /api/email/claim.js
+// Verifies token and sends claim link via Resend when a user clicks "Email tickets".
 import crypto from "crypto";
 
 const ALLOW_ORIGIN = process.env.CORS_ORIGIN || "*";
