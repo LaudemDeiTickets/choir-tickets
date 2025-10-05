@@ -1,158 +1,100 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Your Tickets</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<style>
-  :root{--bd:#e2e8f0;--mut:#475569;--ink:#0f172a;--brand:#0ea5e9;--ok:#10b981}
-  html,body{margin:0;background:#f8fafc;font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;color:var(--ink)}
-  .wrap{max-width:900px;margin:24px auto;padding:0 16px}
-  .head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .card{background:#fff;border:1px solid var(--bd);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(2,132,199,.06)}
-  .row{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center;border:1px solid var(--bd);border-radius:12px;padding:12px}
-  .row + .row{margin-top:10px}
-  .meta{color:var(--mut);font-size:12px}
-  .btn{appearance:none;border:1px solid var(--bd);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
-  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  h1{font-size:20px;margin:0 0 6px}
-  h2{font-size:16px;margin:0 0 10px}
-  .pill{display:inline-block;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.25);padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}
-  .err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:12px;padding:10px;margin:12px 0}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="head">
-    <div>
-      <div class="pill">Tickets ready</div>
-      <h1 id="title">Your tickets</h1>
-      <div class="meta" id="subtitle"></div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" id="dlAll">Download all PNGs</button>
-      <a class="btn" href="index.html">Back</a>
-    </div>
-  </div>
-
-  <div id="err" class="err" style="display:none"></div>
-
-  <div class="card" id="tickets"></div>
-</div>
-
+<button id="shareAllBtn" class="btn">Share all</button>
 <script>
 (async function(){
   const qs = (s,r)=> (r||document).querySelector(s);
   const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
-  const params = new URLSearchParams(location.search);
-  const token = params.get('token') || '';
 
-  if (!token) {
-    qs('#err').textContent = 'No token provided.'; qs('#err').style.display='block'; return;
+  // Optional: if you have the buyer’s SA number, use it for WhatsApp fallback
+  function onlyDigits(s){ return String(s||"").replace(/[^0-9]+/g,""); }
+  function toWhatsAppNum(input){
+    const d = onlyDigits(input||""); if (!d) return "";
+    if (d.startsWith("27")) return d;
+    if (d.startsWith("0")) return "27" + d.slice(1);
+    return d;
   }
 
-  // Verify token + get data to render
-  let data;
-  try {
-    const resp = await fetch('https://choir-tickets.vercel.app/api/tickets/verify', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token })
-    });
-    data = await resp.json();
-    if (!resp.ok || !data.ok) {
-      qs('#err').textContent = 'Could not verify ticket link. ' + (data?.error || '');
-      qs('#err').style.display = 'block';
-      return;
-    }
-  } catch (e) {
-    qs('#err').textContent = 'Network error verifying ticket link.';
-    qs('#err').style.display = 'block';
-    return;
-  }
-
-  const ev = data.event || {};
-  const items = Array.isArray(data.items) ? data.items : [];
-  const buyer = data.buyer || {};
-  const ZAR = new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0});
-  const fmt = (c)=> ZAR.format((c||0)/100);
-  const toHuman = (iso)=> iso ? new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : '';
-
-  qs('#title').textContent = ev.title || 'Your tickets';
-  qs('#subtitle').textContent = [toHuman(ev.startISO), ev.venue, ev.address].filter(Boolean).join(' • ');
-
-  const wrap = qs('#tickets');
-  if (!items.length) {
-    wrap.innerHTML = '<div class="meta">No ticket items found.</div>';
-    return;
-  }
-
-  // Render one row per ticket (respect qty)
-  for (const it of items) {
-    const qty = Math.max(1, parseInt(it.qty || 1, 10));
-    for (let i=0; i<qty; i++) {
-      const tktId = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
-      const row = document.createElement('div');
-      row.className = 'row';
-      row.setAttribute('data-ticket-id', tktId);
-      row.innerHTML = `
-        <div>
-          <h2>${it.name || it.code || 'Ticket'}</h2>
-          <div class="meta">${tktId}</div>
-          <div class="meta">${fmt(it.priceCents||0)}</div>
-          <div class="meta">${toHuman(ev.startISO)} • ${ev.venue||''}</div>
-          <div class="meta">${ev.address||''}</div>
-          <div class="meta">Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')}</div>
-        </div>
-        <div id="qr_${tktId}" style="justify-self:end"></div>
-      `;
-      wrap.appendChild(row);
-
-      // Create QR payload (client-side convenience)
-      const payload = JSON.stringify({
-        order: data.orderId,
-        ticket: tktId,
-        event: ev.id, title: ev.title,
-        dateISO: ev.startISO, venue: ev.venue, address: ev.address,
-        buyer: { firstName: buyer.firstName, lastName: buyer.lastName, email: data.email }
-      });
-      new QRCode(qs('#qr_'+tktId), { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-    }
-  }
-
-  // Download all as PNG
-  qs('#dlAll').onclick = async function(){
-    const rows = qsa('.row'); if (!rows.length) return;
-    for (const row of rows) {
+  async function captureTicketPNGs() {
+    const rows = qsa('#ticketsWrap > div'); // your ticket cards container
+    const files = [];
+    let i = 0;
+    for (const row of rows){
+      // Make it look nice in the PNG (optional style tweaks)
       const prev = {
         backgroundColor: row.style.backgroundColor,
         borderRadius: row.style.borderRadius,
         border: row.style.border,
         boxShadow: row.style.boxShadow,
+        overflow: row.style.overflow,
+        padding: row.style.padding
       };
       row.style.backgroundColor = '#ffffff';
       row.style.borderRadius = '16px';
       row.style.border = '2px solid #e2e8f0';
       row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)';
-      const canvas = await html2canvas(row, { backgroundColor: null, scale: 2 });
+      row.style.overflow = 'hidden';
+      row.style.padding = row.style.padding || '12px 16px';
+
+      const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true });
+
+      // Revert styles
       row.style.backgroundColor = prev.backgroundColor;
       row.style.borderRadius = prev.borderRadius;
       row.style.border = prev.border;
       row.style.boxShadow = prev.boxShadow;
-      const dataUrl = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `${(ev.id||'event')}_${row.dataset.ticketId||'ticket'}.png`;
-      document.body.appendChild(a); a.click(); a.remove();
-      await new Promise(r=>setTimeout(r,120));
+      row.style.overflow = prev.overflow;
+      row.style.padding = prev.padding;
+
+      const blob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
+      if (!blob) continue;
+      const tid = row.dataset.ticketId || `ticket_${++i}`;
+      files.push(new File([blob], `${document.title || 'ticket'}_${tid}.png`, { type:'image/png' }));
+      if (files.length >= 10) break; // practical limit for share sheets
     }
-  };
+    return files;
+  }
+
+  async function shareAll() {
+    try {
+      const files = await captureTicketPNGs();
+      if (!files.length) { alert('No tickets to share.'); return; }
+
+      // Try native share with files (shows Windows share sheet)
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({
+          files,
+          title: document.title || 'Your tickets',
+          text: 'Your tickets are attached.'
+        });
+        return;
+      }
+
+      // Fallback 1: open WhatsApp with a claim link (no file attach via wa.me)
+      // If you’ve got the buyer’s cell on this page, use it; else it will open a generic composer
+      const buyerCell = qs('#buyerCell')?.value || ''; // or inject from JWT
+      const waNum = toWhatsAppNum(buyerCell);
+      const params = new URLSearchParams(location.search);
+      const token = params.get('token') || '';
+      const claimBase = 'ticket.html'; // or your CLAIM_BASE_URL page if different
+      const claimUrl = token ? `${claimBase}?paid=1&token=${encodeURIComponent(token)}` : location.href;
+      const msg = `🎟️ Your tickets\n${claimUrl}`;
+      const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`
+                         : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(wurl, '_blank');
+
+    } catch (e) {
+      console.error(e);
+      // Fallback 2: save PNGs, and let them share manually
+      const files = await captureTicketPNGs();
+      for (const f of files){
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(f);
+        a.download = f.name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+      alert('Your device does not support native sharing from the browser. PNGs have been downloaded.');
+    }
+  }
+
+  qs('#shareAllBtn')?.addEventListener('click', shareAll);
 })();
 </script>
-</body>
-</html>
