@@ -23,7 +23,7 @@
         <!-- Left: Logo + Title -->
         <div class="flex items-center gap-4">
           <img
-            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=15"
+            src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=16"
             alt="Laudem Dei Chamber Choir Logo"
             class="w-20 h-20 rounded-2xl ring-1 ring-slate-200 object-contain bg-white"
             crossorigin="anonymous"
@@ -95,14 +95,8 @@
   </footer>
 
   <script>
-    // ===== Your published Google Sheet (Publish to web) =====
-    // You gave this pubhtml link:
-    // https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pubhtml
-    // We convert it to a CSV endpoint for the tab (gid). Default gid=0; override with ?gid=YOUR_GID in the page URL.
-    const PUB_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv";
-    const params = new URLSearchParams(location.search);
-    const GID = params.get("gid") || "0"; // change per-sheet-tab if needed
-    const CSV_URL = `${PUB_BASE}/pub?gid=${encodeURIComponent(GID)}&single=true&output=csv`;
+    // Fixed CSV endpoint for the single published tab
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=2017023192&single=true&output=csv";
 
     // ===== Utilities =====
     function fmtDate(iso){
@@ -120,7 +114,7 @@
         .filter(ev => {
           const t = Date.parse(ev.startISO || "");
           const active = (String(ev.active || "").toLowerCase() === "true" || ev.active === true || ev.active === "TRUE");
-          return active && !isNaN(t) && t >= now - (60*60*1000); // keep events starting within last hour (grace)
+          return active && !isNaN(t) && t >= now - (60*60*1000); // grace: keep events up to 1h past start
         })
         .sort((a,b) => Date.parse(a.startISO) - Date.parse(b.startISO));
     }
@@ -129,7 +123,7 @@
       const img = ev.image || "https://raw.githubusercontent.com/LaudemDeiTickets/choir-tickets/main/backdrop.jpg";
       const when = fmtDate(ev.startISO);
       const where = ev.venue || "";
-      const addr = ev.address || "";
+      theAddr = ev.address || "";
       const href = ev.href || "index.html";
 
       const el = document.createElement('article');
@@ -142,7 +136,7 @@
           <div class="mt-3 text-sm">
             ${when ? `<div class="text-slate-700">🗓️ ${when}</div>` : ""}
             ${where ? `<div class="text-slate-700">📍 ${where}</div>` : ""}
-            ${addr ? `<div class="text-slate-500">${addr}</div>` : ""}
+            ${theAddr ? `<div class="text-slate-500">${theAddr}</div>` : ""}
           </div>
         </div>
         <div class="px-5 pb-5">
@@ -152,7 +146,7 @@
       return el;
     }
 
-    // ===== CSV parsing (robust, handles commas/quotes/newlines) =====
+    // Robust CSV parser (handles quotes, commas, newlines)
     function parseCSV(text) {
       const rows = [];
       let cur = [], val = "", inQuotes = false;
@@ -214,7 +208,7 @@
         status.textContent = "";
       } catch (e) {
         console.error(e);
-        status.textContent = "Could not load events. Make sure the sheet is published and the gid is correct.";
+        status.textContent = "Could not load events. Make sure the sheet is published.";
       }
     }
 
