@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payment Successful</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#475569;--brand:#0ea5e9;--ok:#10b981;--bd:#e2e8f0}
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+    body{background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:0 12px 40px rgba(2,132,199,.08);max-width:680px;width:100%;padding:24px}
+    h1{margin:0 0 8px 0;font-size:22px}
+    p{margin:8px 0;color:var(--muted)}
+    .badge{display:inline-block;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.3);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;margin-bottom:10px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+    .btn{appearance:none;border:1px solid var(--bd);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .meta{margin-top:12px;font-size:12px;color:var(--muted)}
+    code{background:#f1f5f9;border:1px solid var(--bd);padding:2px 6px;border-radius:6px}
+    a{color:var(--brand);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .hint{font-size:12px;color:#475569;margin-top:6px}
+    .ok{color:#065f46}
+    .err{color:#991b1b}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="badge">Payment received</div>
+    <h1>You're all set!</h1>
+    <p>Open your tickets now or email yourself a secure link.</p>
+
+    <div class="row">
+      <button id="openTickets" class="btn primary" disabled>Open tickets</button>
+      <button id="emailTickets" class="btn" disabled>Email tickets</button>
+      <a class="btn" href="./index.html">Back to tickets</a>
+    </div>
+    <div class="hint" id="hint"></div>
+    <div class="meta">
+      <div>Order ID: <code id="orderBox">—</code></div>
+      <div>Email: <code id="emailBox">—</code></div>
+      <div id="statusBox" class="hint"></div>
+    </div>
+  </main>
+
+<script>
+(function(){
+  const qs = (s,r)=> (r||document).querySelector(s);
+  const params = new URLSearchParams(location.search);
+
+  const order = params.get('order') || '';
+  const email = params.get('email') || '';
+  const token = params.get('token') || '';
+  const claimBase = params.get('claimBase') || 'ticket.html';
+
+  qs('#orderBox').textContent = order || '—';
+  qs('#emailBox').textContent = email || '—';
+
+  const openBtn = qs('#openTickets');
+  const mailBtn = qs('#emailTickets');
+  const hint = qs('#hint');
+  const statusBox = qs('#statusBox');
+
+  if (token) {
+    openBtn.disabled = false;
+    mailBtn.disabled = false;
+    const url = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
+    openBtn.onclick = ()=> { location.href = url; };
+    mailBtn.onclick = async ()=> {
+      statusBox.textContent = "Sending email…";
+      try {
+        const resp = await fetch('https://choir-tickets.vercel.app/api/email/claim', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ token })
+        });
+        const j = await resp.json();
+        if (!resp.ok || !j.ok) {
+          statusBox.innerHTML = "<span class='err'>Could not send email: " + (j?.error || resp.status) + "</span>";
+        } else {
+          statusBox.innerHTML = "<span class='ok'>Email sent!</span>";
+        }
+      } catch (e) {
+        statusBox.innerHTML = "<span class='err'>Network error sending email</span>";
+      }
+    };
+    hint.textContent = "Token detected — you can open or email your tickets now.";
+  } else {
+    hint.textContent = "No token present in URL. If you completed payment, use the link from Yoco or contact support.";
+  }
+})();
+</script>
+</body>
+</html>
