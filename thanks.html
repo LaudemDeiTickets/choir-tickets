@@ -21,20 +21,21 @@
     code{background:#f1f5f9;border:1px solid var(--bd);padding:2px 6px;border-radius:6px}
     a{color:var(--brand);text-decoration:none}
     a:hover{text-decoration:underline}
+    .hint{font-size:12px;color:#475569;margin-top:6px}
   </style>
 </head>
 <body>
   <main class="card">
     <div class="badge">Payment received</div>
     <h1>Thanks! We’re emailing your tickets.</h1>
-    <p id="desc">Please check your inbox for a message with your secure ticket link. This can take up to a couple of minutes. If it doesn’t arrive, check your spam folder or contact support.</p>
+    <p id="desc">If you see the button below enabled, you can open your tickets right away. Otherwise, check your email for the secure link.</p>
 
     <div class="row">
       <button id="openTickets" class="btn primary" disabled>Open tickets</button>
       <button id="refresh" class="btn">Refresh</button>
       <a id="homeLink" class="btn" href="./index.html">Back to tickets</a>
-      <a id="supportLink" class="btn" href="#" target="_blank" rel="noopener">Contact support</a>
     </div>
+    <div class="hint" id="hint"></div>
 
     <div class="meta">
       <div>Order ID: <code id="orderBox">—</code></div>
@@ -55,18 +56,16 @@
   qs('#orderBox').textContent = order || '—';
   qs('#emailBox').textContent = email || '—';
 
-  const subj = encodeURIComponent(`Ticket support — Order ${order||''}`.trim());
-  const body = encodeURIComponent(`Hi Laudem Dei Tickets,\n\nI completed payment but haven't received my ticket email yet.\n\nOrder: ${order||'-'}\nEmail: ${email||'-'}\n\nThanks!`);
-  const support = (params.get('support') || 'mailto:tickets@yourdomain.com') + `?subject=${subj}&body=${body}`;
-  qs('#supportLink').href = support;
-
   const btn = qs('#openTickets');
-  if (token){
+  const hint = qs('#hint');
+
+  if (token) {
     btn.disabled = false;
     const url = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
     btn.onclick = ()=> { location.href = url; };
+    hint.textContent = "Token detected in the URL — you can open your tickets now.";
   } else {
-    qs('#desc').innerHTML = 'We\'ll email a secure link to your tickets shortly. Once you receive it, you can open it on any device. If you used the wrong email, please contact support.';
+    hint.textContent = "No token yet — we will email you a secure link as soon as the payment webhook arrives.";
   }
 
   qs('#refresh').onclick = ()=> location.reload();
