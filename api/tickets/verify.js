@@ -17,7 +17,6 @@ function timingSafeEq(a, b) {
   if (A.length !== B.length) return false;
   return crypto.timingSafeEqual(A, B);
 }
-
 function verifyJWT(token, secret) {
   if (!token || typeof token !== "string" || token.split(".").length !== 3) {
     throw new Error("Malformed token");
@@ -65,8 +64,6 @@ export default async function handler(req, res) {
 
     const payload = verifyJWT(token, secret);
 
-    // (Optional) also check DB/webhook that orderId is paid.
-    // For now we just return the payload so the client can render tickets.
     return res.status(200).json({
       ok: true,
       orderId: payload.orderId,
