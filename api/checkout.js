@@ -8,8 +8,12 @@ export default async function handler(req, res) {
 
   try {
     const { amountCents, description, successUrl, cancelUrl, meta, mode } = req.body || {};
+    console.log("[checkout] incoming successUrl:", successUrl, "cancelUrl:", cancelUrl); // 👈
+
     const isTest = (mode || "").toString().toLowerCase() === "test";
-    const key = isTest ? (process.env.YOCO_SECRET_TEST || process.env.YOCO_SECRET) : (process.env.YOCO_SECRET_LIVE || process.env.YOCO_SECRET);
+    const key = isTest
+      ? (process.env.YOCO_SECRET_TEST || process.env.YOCO_SECRET)
+      : (process.env.YOCO_SECRET_LIVE || process.env.YOCO_SECRET);
     if (!key) return res.status(500).json({ ok:false, error:"Missing YOCO secret" });
 
     if (!Number.isInteger(amountCents) || amountCents < 100)
@@ -21,16 +25,29 @@ export default async function handler(req, res) {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: amountCents, currency: "ZAR", successUrl, cancelUrl,
+        amount: amountCents,
+        currency: "ZAR",
+        successUrl,
+        cancelUrl,
         description: description || "Order",
         metadata: { ...(meta || {}), mode: isTest ? "test" : "live" }
       })
     });
     const p = await r.json().catch(() => ({}));
+    console.log("[checkout] yoco response successUrl:", p?.successUrl, "cancelUrl:", p?.cancelUrl, "redirectUrl:", p?.redirectUrl); // 👈
+
     if (!r.ok) return res.status(400).json({ ok:false, error: p?.message || `Yoco ${r.status}` });
 
-    return res.status(200).json({ ok:true, checkoutId: p.id, redirectUrl: p.redirectUrl || p.url, mode: isTest ? "test" : "live" });
+    return res.status(200).json({
+      ok: true,
+      checkoutId: p.id,
+      redirectUrl: p.redirectUrl || p.url,
+      yocoSuccessUrl: p.successUrl || null,
+      yocoCancelUrl:  p.cancelUrl  || null,
+      mode: isTest ? "test" : "live"
+    });
   } catch (e) {
     return res.status(500).json({ ok:false, error: e?.message || "Server error" });
   }
 }
+
