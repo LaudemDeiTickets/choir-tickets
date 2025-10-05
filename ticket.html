@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ticket</title>
+  <title>Your Tickets</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -19,87 +19,147 @@
   </style>
 </head>
 <body class="p-4 sm:p-8">
-  <div class="max-w-3xl mx-auto">
+  <div class="max-w-4xl mx-auto">
     <header class="flex items-center justify-between mb-4">
-      <h1 class="text-xl font-bold">Your Ticket</h1>
+      <h1 class="text-xl font-bold">Your Tickets</h1>
       <div class="flex gap-2">
         <button id="btnOpen" class="px-3 py-2 rounded-lg border">Open in new window</button>
-        <button id="btnPng" class="px-3 py-2 rounded-lg bg-slate-900 text-white">Download PNG</button>
+        <button id="btnPngAll" class="px-3 py-2 rounded-lg bg-slate-900 text-white">Download All PNGs</button>
       </div>
     </header>
 
-    <section id="ticket" class="ticket">
+    <div id="alert" class="hidden mb-4 rounded-xl border p-3 text-sm"></div>
+
+    <section id="ticketsWrap" class="grid gap-4"></section>
+  </div>
+
+<script>
+(async function(){
+  'use strict';
+
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  const alertBox = document.getElementById('alert');
+  function info(text, color="amber") {
+    alertBox.className = `mb-4 rounded-xl border border-${color}-200 bg-${color}-50 text-${color}-900 p-3 text-sm`;
+    alertBox.textContent = text;
+    alertBox.classList.remove('hidden');
+  }
+  function err(text) { info(text, "red"); }
+
+  if (!token) { err('Missing token. Please open the ticket link from your payment confirmation email.'); return; }
+
+  try{
+    const verifyUrl = '/api/tickets/verify?token=' + encodeURIComponent(token);
+    const r = await fetch(verifyUrl);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Verify failed');
+
+    const p = j.payload;
+    const orgName = (p.orgName || 'Tickets');
+    const event = p.event || {};
+    const buyer = p.buyer || {};
+    const items = Array.isArray(p.items) ? p.items : [];
+
+    if (!items.length) { err('No tickets found for this link.'); return; }
+
+    renderTickets({ orgName, event, buyer, items });
+  }catch(e){
+    console.error(e);
+    err('Could not verify ticket link. ' + (e.message || ''));
+  }
+
+  function ZAR(cents){ return new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0}).format((cents||0)/100); }
+  function toHuman(iso){
+    return new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
+  }
+
+  function mkTicket({ orgName, event, buyer, item }){
+    const wrap = document.createElement('section');
+    wrap.className = 'ticket';
+    wrap.innerHTML = `
       <div class="p-5 flex items-start gap-4">
-        <img id="logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white" alt="Logo">
+        <img src="${(window.LOGO_URL||'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg')}" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white" alt="Logo">
         <div class="flex-1">
-          <div class="text-lg font-semibold" id="title">Event Title</div>
-          <div class="text-sm text-slate-600" id="subtitle">Event subtitle</div>
+          <div class="text-lg font-semibold">${event.title||'Event'}</div>
+          <div class="text-sm text-slate-600">${event.subtitle||''}</div>
           <div class="text-sm mt-2">
-            <span id="when">Sat, 11 Oct 2025 • 18:30</span> • <span id="venue">Venue name</span>
+            <span>${toHuman(event.startISO||'')}</span> • <span>${event.venue||''}</span>
           </div>
-          <div class="text-xs text-slate-500" id="address">Address line</div>
-          <div class="mt-2 text-xs text-slate-500">Buyer: <span id="buyer"></span></div>
+          <div class="text-xs text-slate-500">${event.address||''}</div>
+          <div class="mt-2 text-xs text-slate-500">Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}</div>
         </div>
-        <div id="qr" class="w-[110px] h-[110px] shrink-0"></div>
+        <div id="qr_${item.ticketId}" class="w-[110px] h-[110px] shrink-0"></div>
       </div>
       <div class="notch h-12 border-t border-dashed border-slate-300"></div>
       <div class="p-5 grid sm:grid-cols-3 gap-4 text-sm">
         <div>
           <div class="text-slate-500 text-xs">Ticket ID</div>
-          <div class="font-mono font-semibold" id="ticketId">TKT-XXXXXX</div>
+          <div class="font-mono font-semibold">${item.ticketId}</div>
         </div>
         <div>
           <div class="text-slate-500 text-xs">Type</div>
-          <div id="ticketName">General Admission</div>
+          <div>${item.name||'Admission'}</div>
         </div>
         <div>
           <div class="text-slate-500 text-xs">Price</div>
-          <div id="ticketPrice">R0</div>
+          <div>${ZAR(item.priceCents||0)}</div>
         </div>
       </div>
-    </section>
-  </div>
+      <div class="p-4">
+        <button data-dlid="${item.ticketId}" class="btn-dl px-3 py-2 rounded-lg border">Download PNG</button>
+      </div>
+    `;
+    // QR
+    const payload = JSON.stringify({
+      order: event.orderId, ticket: item.ticketId, event: event.id,
+      title: event.title, dateISO: event.startISO, venue: event.venue,
+      address: event.address, buyer: `${buyer.firstName||''} ${buyer.lastName||''} • ${buyer.cell||''}`.trim()
+    });
+    new QRCode(wrap.querySelector('#qr_'+item.ticketId), { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+    return wrap;
+  }
 
-<script>
-(function(){
-  const params = new URLSearchParams(location.search);
-  const data = {
-    logo: params.get('logo') || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg',
-    title: params.get('title') || 'Spring Serenade Concert',
-    subtitle: params.get('subtitle') || 'An evening of choral gems',
-    when: params.get('when') || 'Sat, 11 Oct 2025 • 18:30',
-    venue: params.get('venue') || 'St. Stithians Chapel',
-    address: params.get('address') || '40 Peter Place, Lyme Park, Sandton, 2191',
-    buyer: params.get('buyer') || 'Thandi Ndlovu • (+27) 82 123 4567',
-    ticketId: params.get('ticketId') || ('TKT-' + Math.random().toString(36).slice(2,8)),
-    ticketName: params.get('ticketName') || 'General Admission',
-    price: params.get('price') || 'R200'
-  };
-  document.getElementById('logo').src = data.logo;
-  document.getElementById('title').textContent = data.title;
-  document.getElementById('subtitle').textContent = data.subtitle;
-  document.getElementById('when').textContent = data.when;
-  document.getElementById('venue').textContent = data.venue;
-  document.getElementById('address').textContent = data.address;
-  document.getElementById('buyer').textContent = data.buyer;
-  document.getElementById('ticketId').textContent = data.ticketId;
-  document.getElementById('ticketName').textContent = data.ticketName;
-  document.getElementById('ticketPrice').textContent = data.price;
+  function renderTickets({ orgName, event, buyer, items }){
+    const host = document.getElementById('ticketsWrap');
+    host.innerHTML = '';
+    const fr = document.createDocumentFragment();
+    for (const it of items) fr.appendChild(mkTicket({ orgName, event, buyer, item: it }));
+    host.appendChild(fr);
 
-  const payload = JSON.stringify({ ticket: data.ticketId, title: data.title, when: data.when, venue: data.venue, buyer: data.buyer });
-  new QRCode(document.getElementById('qr'), { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+    // per-ticket PNG
+    host.addEventListener('click', async (e)=>{
+      const btn = e.target.closest('.btn-dl'); if (!btn) return;
+      const tid = btn.getAttribute('data-dlid');
+      const card = btn.closest('.ticket');
+      const prev = card.style.backgroundColor; card.style.backgroundColor = '#ffffff';
+      const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
+      card.style.backgroundColor = prev;
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png'); a.download = `${tid}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    });
+
+    // download all
+    document.getElementById('btnPngAll').onclick = async function(){
+      const cards = Array.from(document.querySelectorAll('#ticketsWrap .ticket'));
+      for (const card of cards){
+        const tid = card.querySelector('.font-mono').textContent.trim();
+        const prev = card.style.backgroundColor; card.style.backgroundColor = '#ffffff';
+        const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
+        card.style.backgroundColor = prev;
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png'); a.download = `${tid}.png`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        await new Promise(r=>setTimeout(r, 120));
+      }
+    };
+  }
 
   document.getElementById('btnOpen').onclick = function(){
-    const url = location.pathname + "?" + params.toString();
-    window.open(url, "_blank");
+    window.open(location.href, "_blank");
   };
-  document.getElementById('btnPng').onclick = async function(){
-    const el = document.getElementById('ticket');
-    const canvas = await html2canvas(el, { backgroundColor:"#ffffff", scale:2, useCORS:true });
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png'); a.download = `${data.ticketId}.png`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  };
+
 })();
 </script>
 </body>
