@@ -49,30 +49,26 @@
 
   const order = params.get('order') || '';
   const email = params.get('email') || '';
-  const token = params.get('token') || ''; // if you ever pass it directly
-  const claimBase = params.get('claimBase') || 'ticket.html'; // override target if needed
+  const token = params.get('token') || '';
+  const claimBase = params.get('claimBase') || 'ticket.html';
 
   qs('#orderBox').textContent = order || '—';
   qs('#emailBox').textContent = email || '—';
 
-  // Support (mailto) prefilled
   const subj = encodeURIComponent(`Ticket support — Order ${order||''}`.trim());
   const body = encodeURIComponent(`Hi Laudem Dei Tickets,\n\nI completed payment but haven't received my ticket email yet.\n\nOrder: ${order||'-'}\nEmail: ${email||'-'}\n\nThanks!`);
   const support = (params.get('support') || 'mailto:tickets@yourdomain.com') + `?subject=${subj}&body=${body}`;
   qs('#supportLink').href = support;
 
-  // If a token is present, enable "Open tickets" button to direct link
   const btn = qs('#openTickets');
   if (token){
     btn.disabled = false;
     const url = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
     btn.onclick = ()=> { location.href = url; };
   } else {
-    // Otherwise, keep disabled; edit the description mildly
     qs('#desc').innerHTML = 'We\'ll email a secure link to your tickets shortly. Once you receive it, you can open it on any device. If you used the wrong email, please contact support.';
   }
 
-  // Refresh button
   qs('#refresh').onclick = ()=> location.reload();
 })();
 </script>
