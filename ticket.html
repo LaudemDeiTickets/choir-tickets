@@ -1,184 +1,157 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Your Tickets</title>
-  <link rel="stylesheet" href="./styles/tailwind.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <style>
-    html,body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f8fafc; }
-    .ticket { background:#fff; border-radius:18px; border:1px solid #e2e8f0; box-shadow:0 12px 40px rgba(2,132,199,.08); overflow:hidden; }
-    .notch { background: radial-gradient(circle at 0 50%, transparent 14px, #fff 15px) left,
-             radial-gradient(circle at 100% 50%, transparent 14px, #fff 15px) right;
-             background-size:50% 100%; background-repeat:no-repeat; }
-    .btn { padding:.5rem .75rem; border-radius:.5rem; }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Your Tickets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{--bd:#e2e8f0;--mut:#475569;--ink:#0f172a;--brand:#0ea5e9;--ok:#10b981}
+  html,body{margin:0;background:#f8fafc;font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;color:var(--ink)}
+  .wrap{max-width:900px;margin:24px auto;padding:0 16px}
+  .head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .card{background:#fff;border:1px solid var(--bd);border-radius:16px;padding:16px;box-shadow:0 10px 30px rgba(2,132,199,.06)}
+  .row{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center;border:1px solid var(--bd);border-radius:12px;padding:12px}
+  .row + .row{margin-top:10px}
+  .meta{color:var(--mut);font-size:12px}
+  .btn{appearance:none;border:1px solid var(--bd);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  h1{font-size:20px;margin:0 0 6px}
+  h2{font-size:16px;margin:0 0 10px}
+  .pill{display:inline-block;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.25);padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}
+  .err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:12px;padding:10px;margin:12px 0}
+</style>
 </head>
-<body class="p-4 sm:p-8">
-  <div class="max-w-4xl mx-auto">
-    <header class="flex items-center justify-between mb-4">
-      <h1 class="text-xl font-bold">Your Tickets</h1>
-      <div class="flex gap-2">
-        <button id="btnOpen" class="btn border">Open in new window</button>
-        <button id="btnPngAll" class="btn bg-slate-900 text-white">Download All PNGs</button>
-      </div>
-    </header>
-
-    <div id="alert" class="hidden mb-4 rounded-xl border p-3 text-sm"></div>
-
-    <section id="ticketsWrap" class="grid gap-4"></section>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <div class="pill">Tickets ready</div>
+      <h1 id="title">Your tickets</h1>
+      <div class="meta" id="subtitle"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="dlAll">Download all PNGs</button>
+      <a class="btn" href="index.html">Back</a>
+    </div>
   </div>
+
+  <div id="err" class="err" style="display:none"></div>
+
+  <div class="card" id="tickets"></div>
+</div>
 
 <script>
 (async function(){
-  'use strict';
-
-  const CONFIG = {
-    API_BASE: 'https://choir-tickets.vercel.app',
-    LOGO_URL: 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg'
-  };
-
+  const qs = (s,r)=> (r||document).querySelector(s);
+  const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
   const params = new URLSearchParams(location.search);
-  const token = params.get('token');
-  const alertBox = document.getElementById('alert');
-  const host = document.getElementById('ticketsWrap');
+  const token = params.get('token') || '';
 
-  function showAlert(text, color="amber"){
-    alertBox.className = `mb-4 rounded-xl border border-${color}-200 bg-${color}-50 text-${color}-900 p-3 text-sm`;
-    alertBox.textContent = text;
-    alertBox.classList.remove('hidden');
-  }
-  function showError(text){ showAlert(text, "red"); }
-
-  function ZAR(cents){ return new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0}).format((cents||0)/100); }
-  function toHuman(iso){
-    try{
-      return new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
-    }catch(_){ return ''; }
+  if (!token) {
+    qs('#err').textContent = 'No token provided.'; qs('#err').style.display='block'; return;
   }
 
-  if (!token){
-    showAlert('Payment successful! Your ticket link has been emailed to you. Please check your inbox (and spam).', 'emerald');
-    return;
-  }
-
-  let payload;
+  // Verify token + get data to render
+  let data;
   try {
-    const verifyUrl = `${CONFIG.API_BASE}/api/tickets/verify?token=${encodeURIComponent(token)}`;
-    const r = await fetch(verifyUrl, { method:'GET' });
-    const j = await r.json().catch(()=> ({}));
-    if (!j.ok) throw new Error(j.error || 'Verify failed');
-    payload = j.payload;
+    const resp = await fetch('https://choir-tickets.vercel.app/api/tickets/verify', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token })
+    });
+    data = await resp.json();
+    if (!resp.ok || !data.ok) {
+      qs('#err').textContent = 'Could not verify ticket link. ' + (data?.error || '');
+      qs('#err').style.display = 'block';
+      return;
+    }
   } catch (e) {
-    console.error(e);
-    showError('Could not verify ticket link. ' + (e.message || ''));
+    qs('#err').textContent = 'Network error verifying ticket link.';
+    qs('#err').style.display = 'block';
     return;
   }
 
-  const orgName = payload.orgName || 'Tickets';
-  const event   = payload.event || {};
-  const buyer   = payload.buyer || {};
-  const items   = Array.isArray(payload.items) ? payload.items : [];
-  if (!items.length){
-    showError('No tickets found for this link.');
+  const ev = data.event || {};
+  const items = Array.isArray(data.items) ? data.items : [];
+  const buyer = data.buyer || {};
+  const ZAR = new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0});
+  const fmt = (c)=> ZAR.format((c||0)/100);
+  const toHuman = (iso)=> iso ? new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : '';
+
+  qs('#title').textContent = ev.title || 'Your tickets';
+  qs('#subtitle').textContent = [toHuman(ev.startISO), ev.venue, ev.address].filter(Boolean).join(' • ');
+
+  const wrap = qs('#tickets');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="meta">No ticket items found.</div>';
     return;
   }
 
-  host.innerHTML = '';
-  const frag = document.createDocumentFragment();
-  for (const item of items) frag.appendChild(makeTicketCard({ orgName, event, buyer, item }));
-  host.appendChild(frag);
+  // Render one row per ticket (respect qty)
+  for (const it of items) {
+    const qty = Math.max(1, parseInt(it.qty || 1, 10));
+    for (let i=0; i<qty; i++) {
+      const tktId = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.setAttribute('data-ticket-id', tktId);
+      row.innerHTML = `
+        <div>
+          <h2>${it.name || it.code || 'Ticket'}</h2>
+          <div class="meta">${tktId}</div>
+          <div class="meta">${fmt(it.priceCents||0)}</div>
+          <div class="meta">${toHuman(ev.startISO)} • ${ev.venue||''}</div>
+          <div class="meta">${ev.address||''}</div>
+          <div class="meta">Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')}</div>
+        </div>
+        <div id="qr_${tktId}" style="justify-self:end"></div>
+      `;
+      wrap.appendChild(row);
 
-  host.addEventListener('click', async (e)=>{
-    const btn = e.target.closest('[data-dlid]'); if (!btn) return;
-    const tid = btn.getAttribute('data-dlid');
-    const card = btn.closest('.ticket');
-    await downloadCardPng(card, `${tid}.png`);
-  });
+      // Create QR payload (client-side convenience)
+      const payload = JSON.stringify({
+        order: data.orderId,
+        ticket: tktId,
+        event: ev.id, title: ev.title,
+        dateISO: ev.startISO, venue: ev.venue, address: ev.address,
+        buyer: { firstName: buyer.firstName, lastName: buyer.lastName, email: data.email }
+      });
+      new QRCode(qs('#qr_'+tktId), { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+    }
+  }
 
-  document.getElementById('btnPngAll').onclick = async function(){
-    const cards = Array.from(document.querySelectorAll('#ticketsWrap .ticket'));
-    for (const card of cards){
-      const tid = (card.querySelector('[data-ticket-id]')?.getAttribute('data-ticket-id')) ||
-                  (card.querySelector('.font-mono')?.textContent?.trim()) || 'ticket';
-      await downloadCardPng(card, `${tid}.png`);
-      await new Promise(r=>setTimeout(r, 120));
+  // Download all as PNG
+  qs('#dlAll').onclick = async function(){
+    const rows = qsa('.row'); if (!rows.length) return;
+    for (const row of rows) {
+      const prev = {
+        backgroundColor: row.style.backgroundColor,
+        borderRadius: row.style.borderRadius,
+        border: row.style.border,
+        boxShadow: row.style.boxShadow,
+      };
+      row.style.backgroundColor = '#ffffff';
+      row.style.borderRadius = '16px';
+      row.style.border = '2px solid #e2e8f0';
+      row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)';
+      const canvas = await html2canvas(row, { backgroundColor: null, scale: 2 });
+      row.style.backgroundColor = prev.backgroundColor;
+      row.style.borderRadius = prev.borderRadius;
+      row.style.border = prev.border;
+      row.style.boxShadow = prev.boxShadow;
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${(ev.id||'event')}_${row.dataset.ticketId||'ticket'}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      await new Promise(r=>setTimeout(r,120));
     }
   };
-
-  document.getElementById('btnOpen').onclick = ()=> window.open(location.href, '_blank');
-
-  function makeTicketCard({ orgName, event, buyer, item }){
-    const wrap = document.createElement('section');
-    wrap.className = 'ticket';
-    wrap.setAttribute('data-ticket-id', item.ticketId || '');
-    wrap.innerHTML = `
-      <div class="p-5 flex items-start gap-4">
-        <img src="${CONFIG.LOGO_URL}" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white" alt="Logo">
-        <div class="flex-1">
-          <div class="text-lg font-semibold">${event.title||'Event'}</div>
-          <div class="text-sm text-slate-600">${event.subtitle||''}</div>
-          <div class="text-sm mt-2">
-            <span>${toHuman(event.startISO||'')}</span> • <span>${event.venue||''}</span>
-          </div>
-          <div class="text-xs text-slate-500">${event.address||''}</div>
-          <div class="mt-2 text-xs text-slate-500">Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}</div>
-        </div>
-        <div id="qr_${item.ticketId}" class="w-[110px] h-[110px] shrink-0"></div>
-      </div>
-
-      <div class="notch h-12 border-t border-dashed border-slate-300"></div>
-
-      <div class="p-5 grid sm:grid-cols-3 gap-4 text-sm">
-        <div>
-          <div class="text-slate-500 text-xs">Ticket ID</div>
-          <div class="font-mono font-semibold">${item.ticketId}</div>
-        </div>
-        <div>
-          <div class="text-slate-500 text-xs">Type</div>
-          <div>${item.name||'Admission'}</div>
-        </div>
-        <div>
-          <div class="text-slate-500 text-xs">Price</div>
-          <div>${ZAR(item.priceCents||0)}</div>
-        </div>
-      </div>
-
-      <div class="p-4">
-        <button data-dlid="${item.ticketId}" class="btn border">Download PNG</button>
-      </div>
-    `;
-
-    const payload = JSON.stringify({
-      order: event.orderId,
-      ticket: item.ticketId,
-      event: event.id,
-      title: event.title,
-      dateISO: event.startISO,
-      venue: event.venue,
-      address: event.address,
-      buyer: `${buyer.firstName||''} ${buyer.lastName||''} • ${buyer.cell||''}`.trim()
-    });
-    new QRCode(wrap.querySelector('#qr_'+item.ticketId), {
-      text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M
-    });
-
-    return wrap;
-  }
-
-  async function downloadCardPng(card, filename){
-    const prevBg = card.style.backgroundColor;
-    card.style.backgroundColor = '#ffffff';
-    const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
-    card.style.backgroundColor = prevBg;
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = filename || 'ticket.png';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  }
-
 })();
 </script>
 </body>
