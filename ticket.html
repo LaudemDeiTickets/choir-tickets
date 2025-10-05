@@ -1,21 +1,27 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Your Tickets</title>
+
+  <!-- Fonts / CSS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- QR + HTML2Canvas (for PNG export) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <style>
     html,body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f8fafc; }
     .ticket { background:#fff; border-radius:18px; border:1px solid #e2e8f0; box-shadow:0 12px 40px rgba(2,132,199,.08); overflow:hidden; }
     .notch { background: radial-gradient(circle at 0 50%, transparent 14px, #fff 15px) left,
              radial-gradient(circle at 100% 50%, transparent 14px, #fff 15px) right;
              background-size:50% 100%; background-repeat:no-repeat; }
+    .btn { padding:.5rem .75rem; border-radius:.5rem; }
   </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -23,8 +29,8 @@
     <header class="flex items-center justify-between mb-4">
       <h1 class="text-xl font-bold">Your Tickets</h1>
       <div class="flex gap-2">
-        <button id="btnOpen" class="px-3 py-2 rounded-lg border">Open in new window</button>
-        <button id="btnPngAll" class="px-3 py-2 rounded-lg bg-slate-900 text-white">Download All PNGs</button>
+        <button id="btnOpen" class="btn border">Open in new window</button>
+        <button id="btnPngAll" class="btn bg-slate-900 text-white">Download All PNGs</button>
       </div>
     </header>
 
@@ -37,49 +43,98 @@
 (async function(){
   'use strict';
 
+  // ====== CONFIG (edit these two if needed) ======
+  const CONFIG = {
+    // Your Vercel API origin (no trailing slash)
+    API_BASE: 'https://choir-tickets.vercel.app',
+    // Logo used on the ticket card
+    LOGO_URL: 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg'
+  };
+
+  // ====== Helpers ======
   const params = new URLSearchParams(location.search);
   const token = params.get('token');
   const alertBox = document.getElementById('alert');
-  function info(text, color="amber") {
+  const host = document.getElementById('ticketsWrap');
+
+  function showAlert(text, color="amber"){
     alertBox.className = `mb-4 rounded-xl border border-${color}-200 bg-${color}-50 text-${color}-900 p-3 text-sm`;
     alertBox.textContent = text;
     alertBox.classList.remove('hidden');
   }
-  function err(text) { info(text, "red"); }
-
-  if (!token) { err('Missing token. Please open the ticket link from your payment confirmation email.'); return; }
-
-  try{
-    const verifyUrl = '/api/tickets/verify?token=' + encodeURIComponent(token);
-    const r = await fetch(verifyUrl);
-    const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'Verify failed');
-
-    const p = j.payload;
-    const orgName = (p.orgName || 'Tickets');
-    const event = p.event || {};
-    const buyer = p.buyer || {};
-    const items = Array.isArray(p.items) ? p.items : [];
-
-    if (!items.length) { err('No tickets found for this link.'); return; }
-
-    renderTickets({ orgName, event, buyer, items });
-  }catch(e){
-    console.error(e);
-    err('Could not verify ticket link. ' + (e.message || ''));
-  }
+  function showError(text){ showAlert(text, "red"); }
 
   function ZAR(cents){ return new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0}).format((cents||0)/100); }
   function toHuman(iso){
-    return new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
+    try{
+      return new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
+    }catch(_){ return ''; }
   }
 
-  function mkTicket({ orgName, event, buyer, item }){
+  // ====== Fetch + verify token from your API (absolute URL) ======
+  if (!token){
+    showError('Missing token. Please open the ticket link from your payment confirmation email.');
+    return;
+  }
+
+  let payload;
+  try {
+    const verifyUrl = `${CONFIG.API_BASE}/api/tickets/verify?token=${encodeURIComponent(token)}`;
+    const r = await fetch(verifyUrl, { method:'GET' });
+    const j = await r.json().catch(()=> ({}));
+    if (!j.ok) throw new Error(j.error || 'Verify failed');
+    payload = j.payload;
+  } catch (e) {
+    console.error(e);
+    showError('Could not verify ticket link. ' + (e.message || ''));
+    return;
+  }
+
+  const orgName = payload.orgName || 'Tickets';
+  const event   = payload.event || {};
+  const buyer   = payload.buyer || {};
+  const items   = Array.isArray(payload.items) ? payload.items : [];
+  if (!items.length){
+    showError('No tickets found for this link.');
+    return;
+  }
+
+  // ====== Render tickets ======
+  host.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (const item of items) frag.appendChild(makeTicketCard({ orgName, event, buyer, item }));
+  host.appendChild(frag);
+
+  // per-ticket PNG download
+  host.addEventListener('click', async (e)=>{
+    const btn = e.target.closest('[data-dlid]'); if (!btn) return;
+    const tid = btn.getAttribute('data-dlid');
+    const card = btn.closest('.ticket');
+    await downloadCardPng(card, `${tid}.png`);
+  });
+
+  // download all
+  document.getElementById('btnPngAll').onclick = async function(){
+    const cards = Array.from(document.querySelectorAll('#ticketsWrap .ticket'));
+    for (const card of cards){
+      const tid = (card.querySelector('[data-ticket-id]')?.getAttribute('data-ticket-id')) ||
+                  (card.querySelector('.font-mono')?.textContent?.trim()) || 'ticket';
+      await downloadCardPng(card, `${tid}.png`);
+      await new Promise(r=>setTimeout(r, 120));
+    }
+  };
+
+  // open in new tab
+  document.getElementById('btnOpen').onclick = ()=> window.open(location.href, '_blank');
+
+  // ====== Builders ======
+  function makeTicketCard({ orgName, event, buyer, item }){
     const wrap = document.createElement('section');
     wrap.className = 'ticket';
+    wrap.setAttribute('data-ticket-id', item.ticketId || '');
     wrap.innerHTML = `
       <div class="p-5 flex items-start gap-4">
-        <img src="${(window.LOGO_URL||'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg')}" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white" alt="Logo">
+        <img src="${CONFIG.LOGO_URL}" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white" alt="Logo">
         <div class="flex-1">
           <div class="text-lg font-semibold">${event.title||'Event'}</div>
           <div class="text-sm text-slate-600">${event.subtitle||''}</div>
@@ -87,80 +142,4 @@
             <span>${toHuman(event.startISO||'')}</span> • <span>${event.venue||''}</span>
           </div>
           <div class="text-xs text-slate-500">${event.address||''}</div>
-          <div class="mt-2 text-xs text-slate-500">Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}</div>
-        </div>
-        <div id="qr_${item.ticketId}" class="w-[110px] h-[110px] shrink-0"></div>
-      </div>
-      <div class="notch h-12 border-t border-dashed border-slate-300"></div>
-      <div class="p-5 grid sm:grid-cols-3 gap-4 text-sm">
-        <div>
-          <div class="text-slate-500 text-xs">Ticket ID</div>
-          <div class="font-mono font-semibold">${item.ticketId}</div>
-        </div>
-        <div>
-          <div class="text-slate-500 text-xs">Type</div>
-          <div>${item.name||'Admission'}</div>
-        </div>
-        <div>
-          <div class="text-slate-500 text-xs">Price</div>
-          <div>${ZAR(item.priceCents||0)}</div>
-        </div>
-      </div>
-      <div class="p-4">
-        <button data-dlid="${item.ticketId}" class="btn-dl px-3 py-2 rounded-lg border">Download PNG</button>
-      </div>
-    `;
-    // QR
-    const payload = JSON.stringify({
-      order: event.orderId, ticket: item.ticketId, event: event.id,
-      title: event.title, dateISO: event.startISO, venue: event.venue,
-      address: event.address, buyer: `${buyer.firstName||''} ${buyer.lastName||''} • ${buyer.cell||''}`.trim()
-    });
-    new QRCode(wrap.querySelector('#qr_'+item.ticketId), { text: payload, width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
-    return wrap;
-  }
-
-  function renderTickets({ orgName, event, buyer, items }){
-    const host = document.getElementById('ticketsWrap');
-    host.innerHTML = '';
-    const fr = document.createDocumentFragment();
-    for (const it of items) fr.appendChild(mkTicket({ orgName, event, buyer, item: it }));
-    host.appendChild(fr);
-
-    // per-ticket PNG
-    host.addEventListener('click', async (e)=>{
-      const btn = e.target.closest('.btn-dl'); if (!btn) return;
-      const tid = btn.getAttribute('data-dlid');
-      const card = btn.closest('.ticket');
-      const prev = card.style.backgroundColor; card.style.backgroundColor = '#ffffff';
-      const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
-      card.style.backgroundColor = prev;
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png'); a.download = `${tid}.png`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    });
-
-    // download all
-    document.getElementById('btnPngAll').onclick = async function(){
-      const cards = Array.from(document.querySelectorAll('#ticketsWrap .ticket'));
-      for (const card of cards){
-        const tid = card.querySelector('.font-mono').textContent.trim();
-        const prev = card.style.backgroundColor; card.style.backgroundColor = '#ffffff';
-        const canvas = await html2canvas(card, { backgroundColor: null, scale: 2, useCORS: true });
-        card.style.backgroundColor = prev;
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png'); a.download = `${tid}.png`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        await new Promise(r=>setTimeout(r, 120));
-      }
-    };
-  }
-
-  document.getElementById('btnOpen').onclick = function(){
-    window.open(location.href, "_blank");
-  };
-
-})();
-</script>
-</body>
-</html>
+          <div class="mt-2 text-xs text-slate-500">Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}<
