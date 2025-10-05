@@ -15,7 +15,7 @@ async function readRaw(req) {
 function computeSig(base64Secret, signedContent) {
   const raw = base64Secret.includes("_") ? base64Secret.split("_")[1] : base64Secret;
   const key = Buffer.from(raw, "base64");
-  return crypto.createHmac("sha256", key).update(signedContent).digest("base64");
+  return crypto.createHmac("sha256", key).update(signedContent).digest("sha256").toString("base64");
 }
 function safeEq(a, b) {
   const A = Buffer.from(a || "");
@@ -59,12 +59,10 @@ export default async function handler(req, res) {
       if (!ok) return res.status(403).json({ received:false, error:"Invalid signature" });
     }
 
-    // Parse event
     let event = {};
     try { event = JSON.parse(rawBody); } catch { return res.status(400).json({ received:false, error:"Invalid JSON" }); }
     mode = event?.mode || mode;
 
-    // Metadata from checkout
     const md = event?.data?.metadata || {};
     const orderId = md?.orderId || event?.data?.id || ("order_" + Date.now());
     const buyer = md?.buyer || {};
@@ -79,7 +77,6 @@ export default async function handler(req, res) {
       orderId
     };
 
-    // Build signed item list
     const now = Date.now();
     const signedItems = [];
     for (const it of itemsRaw) {
@@ -90,7 +87,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Token payload
     const payload = {
       iss: "laudemdei.tickets",
       iat: now,
@@ -112,22 +108,18 @@ export default async function handler(req, res) {
     const sig = crypto.createHmac("sha256", signingSecret).update(data).digest("base64");
     const token = b64url(data) + "." + b64url(sig);
 
-    const baseCheckout = process.env.CLAIM_BASE_URL || "https://laudemdeitickets.github.io/choir-tickets/checkout.html";
+    // *** CLAIM link now points to /ticket.html ***
+    const baseCheckout = process.env.CLAIM_BASE_URL || "https://laudemdeitickets.github.io/choir-tickets/ticket.html";
     const claimUrl = `${baseCheckout}?paid=1&token=${encodeURIComponent(token)}`;
 
     const orgName = process.env.ORG_NAME || "Laudem Dei Chamber Choir";
     const logoUrl = process.env.LOGO_URL || "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg";
 
-    // Optional PNG attachment (first ticket)
     let attachments = [];
     if (process.env.ATTACH_PNG === "1" && signedItems.length) {
       try {
-        const png = await renderTicketPng({
-          orgName, logoUrl,
-          event: evInfo,
-          buyer,
-          item: signedItems[0]
-        });
+        const { renderTicketPng } = await import("../_lib/renderTicketPng.js");
+        const png = await renderTicketPng({ orgName, logoUrl, event: evInfo, buyer, item: signedItems[0] });
         const base64 = Buffer.from(png).toString("base64");
         attachments.push({ filename: `${signedItems[0].ticketId}.png`, content: base64, contentType: "image/png" });
       } catch (e) {
@@ -135,14 +127,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // Email the buyer
     let emailStatus = "skipped";
     if (buyer?.email) {
       try {
-        const { html, text, subject } = buildTicketEmail({
+        const { html, text, subject } = (await import("../_lib/ticketEmailTemplate.js")).buildTicketEmail({
           orgName, event: evInfo, claimUrl, withAttachment: attachments.length > 0
         });
-        await sendEmail({ to: buyer.email, subject, html, text, attachments });
+        await (await import("../_lib/sendEmail.js")).sendEmail({ to: buyer.email, subject, html, text, attachments });
         emailStatus = "sent";
       } catch (e) {
         console.error("email error:", e?.message);
