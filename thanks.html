@@ -1,73 +1,81 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Thanks — Payment Received</title>
+  <title>Thanks — Laudem Dei Chamber Choir</title>
   <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#475569;--brand:#0ea5e9;--bd:#e2e8f0}
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
-    body{background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:0 12px 40px rgba(2,132,199,.08);max-width:680px;width:100%;padding:24px}
-    h1{margin:0 0 8px 0;font-size:22px}
-    p{margin:8px 0;color:var(--muted)}
-    .badge{display:inline-block;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.3);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;margin-bottom:10px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
-    .btn{appearance:none;border:1px solid var(--bd);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
-    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .meta{margin-top:12px;font-size:12px;color:var(--muted)}
-    code{background:#f1f5f9;border:1px solid var(--bd);padding:2px 6px;border-radius:6px}
-    .hint{font-size:12px;color:#475569;margin-top:6px}
-    .err{color:#991b1b}
+    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
   </style>
 </head>
-<body>
-  <main class="card">
-    <div class="badge">Payment received</div>
-    <h1>Thanks! Your tickets are ready.</h1>
-    <p>Open your tickets now.</p>
+<body class="bg-white text-slate-800">
+  <div class="max-w-xl mx-auto px-4 py-10">
+    <header class="flex items-center gap-3">
+      <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=11"
+           alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
+           crossorigin="anonymous" referrerpolicy="no-referrer">
+      <div>
+        <h1 class="text-xl font-bold">Thank you for supporting Laudem Dei Chamber Choir.</h1>
+        <p class="text-sm text-slate-500">Your payment was successful.</p>
+      </div>
+    </header>
 
-    <div class="row">
-      <button id="openTickets" class="btn primary" disabled>Open tickets</button>
-    </div>
+    <section class="mt-6 glass rounded-2xl border border-slate-200 p-6">
+      <p class="text-slate-700">Your tickets are ready. Click below to open and save them.</p>
 
-    <div class="hint" id="hint"></div>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <a id="openTickets"
+           class="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700"
+           href="#">Open your tickets</a>
 
-    <div class="meta">
-      <div>Order ID: <code id="orderBox">—</code></div>
-      <div>Email: <code id="emailBox">—</code></div>
-      <div id="statusBox" class="hint"></div>
-      <div class="hint">If you updated this page and still see an older version, hard-refresh or append <code>&v=3</code> to the URL.</div>
-    </div>
-  </main>
+        <a href="index.html"
+           class="inline-flex items-center justify-center px-5 py-3 rounded-xl border hover:bg-white">
+          Back to Home
+        </a>
+      </div>
 
-<script>
-(function(){
-  const qs = (s,r)=> (r||document).querySelector(s);
-  const params = new URLSearchParams(location.search);
+      <p id="note" class="text-xs text-slate-500 mt-3">
+        Tip: Bookmark or save the ticket link so you can access it later.
+      </p>
 
-  const order = params.get('order') || '';
-  const email = params.get('email') || '';
-  const token = params.get('token') || '';
-  const claimBase = params.get('claimBase') || 'ticket.html'; // change if your tickets live elsewhere
+      <div id="errBox" class="hidden mt-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 p-3 text-sm"></div>
+    </section>
+  </div>
 
-  qs('#orderBox').textContent = order || '—';
-  qs('#emailBox').textContent = email || '—';
+  <script>
+  (function(){
+    const params = new URLSearchParams(location.search);
+    // Expect: ?paid=1&order=...&email=...&v=...&token=...
+    const token = params.get('token') || params.get('t');
+    const version = params.get('v') || '11'; // cache-buster
+    const openBtn = document.getElementById('openTickets');
+    const errBox = document.getElementById('errBox');
+    const note   = document.getElementById('note');
 
-  const openBtn = qs('#openTickets');
-  const hint = qs('#hint');
+    // Build claim URL to ticket page, preserving cache-buster
+    let claimUrl = 'ticket.html';
+    const qp = new URLSearchParams();
+    qp.set('paid', '1');
+    qp.set('v', version);
+    if (token) qp.set('token', token);
 
-  if (token) {
-    openBtn.disabled = false;
-    const ticketUrl = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
-    openBtn.onclick = () => { location.href = ticketUrl; };
-    hint.textContent = "Token detected — you can open your tickets now.";
-  } else {
-    hint.innerHTML = "<span class='err'>No token present in URL. If you completed payment, use the link from Yoco or contact support.</span>";
-  }
-})();
-</script>
+    claimUrl += `?${qp.toString()}`;
+    openBtn.href = claimUrl;
+
+    // If token missing, warn user (still allow opening the page)
+    if (!token) {
+      errBox.textContent = "We couldn't detect a ticket token in the link. You can still open tickets, but if they don't load, please return via the email/SMS link after payment.";
+      errBox.classList.remove('hidden');
+      note.textContent = "Tip: Use the link from your confirmation page or email to ensure tickets load automatically.";
+    }
+  })();
+  </script>
 </body>
 </html>
+
