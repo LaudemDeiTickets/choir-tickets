@@ -71,5 +71,24 @@
   qs('#refresh').onclick = ()=> location.reload();
 })();
 </script>
+
+<script>
+(async function(){
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  if (!token) return;
+
+  // Fire-and-forget: ask the server to email the claim link
+  try {
+    await fetch('https://choir-tickets.vercel.app/api/email/claim', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ token })
+    });
+  } catch(_) {}
+})();
+</script>
+
+  
 </body>
 </html>
