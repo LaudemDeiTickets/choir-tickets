@@ -20,7 +20,10 @@
   <div class="max-w-3xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg" alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white">
+        <!-- Cache-busted logo -->
+        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=5"
+             alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
+             crossorigin="anonymous" referrerpolicy="no-referrer">
         <div>
           <h1 class="text-xl font-bold">Your Tickets</h1>
           <p class="text-sm text-slate-500">Save or share your tickets below</p>
@@ -36,6 +39,7 @@
     <section id="eventBox" class="mt-6 glass rounded-2xl border border-slate-200 p-5 hidden">
       <h2 id="evTitle" class="text-lg font-semibold"></h2>
       <p id="evMeta" class="text-sm text-slate-600"></p>
+      <p id="evAddr" class="text-sm text-slate-700"></p>
     </section>
 
     <!-- Tickets -->
@@ -97,31 +101,45 @@
       const buyer = payload.buyer || {};
       const items = Array.isArray(payload.items) ? payload.items : [];
 
-      // header
+      // Header summary (now includes full address)
       qs('#orderIdOut').textContent = payload.orderId || '—';
       qs('#evTitle').textContent = ev.title || 'Event';
-      qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue, ev.address].filter(Boolean).join(' • ');
+      qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue].filter(Boolean).join(' • ');
+      qs('#evAddr').textContent = ev.address || '';
       qs('#eventBox').classList.remove('hidden');
 
-      // generate ticket rows
-      const logoUrl = 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg';
+      // Force-refresh the logo everywhere (header + tickets)
+      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=5';
+      const headerLogo = qs('#orgLogo'); if (headerLogo) headerLogo.src = logoUrl;
+
+      // Build each ticket card (event + address printed on the ticket)
       for (const it of items){
         const qty = Math.max(1, Number(it.qty||1));
         for (let i=0; i<qty; i++){
           const tkt = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
           const row = document.createElement('div');
-          row.className = 'grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
+          row.className = 'grid grid-cols-[1fr,120px] gap-4 border border-slate-200 rounded-xl px-4 py-4 mt-3 items-center';
           row.setAttribute('data-ticket-id', tkt);
           row.innerHTML = `
             <div>
-              <div class='flex items-center gap-2'>
-                <img src='${logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
-                <div class='font-medium'>${it.name || 'Admission'}</div>
+              <div class='flex items-center gap-3'>
+                <img src='${logoUrl}' crossorigin='anonymous' referrerpolicy='no-referrer'
+                     class='w-9 h-9 rounded-md ring-1 ring-slate-200 object-contain bg-white' alt='logo' />
+                <div>
+                  <div class='text-base font-semibold'>${ev.title || 'Event'}</div>
+                  <div class='text-[12px] text-slate-500'>${it.name || 'Admission'} • Ticket ID: ${tkt}</div>
+                </div>
               </div>
-              <div class='text-xs text-slate-500'>${tkt}</div>
-              <div class='text-xs text-slate-600 mt-1'>${toHuman(ev.startISO)}${ev.venue ? ' • ' + ev.venue : ''}</div>
-              <div class='text-[11px] text-slate-500'>${ev.address || ''}</div>
-              <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}</div>
+
+              <div class='mt-2 text-[13px]'>
+                <div class='text-slate-700'><span class='font-medium'>When:</span> ${toHuman(ev.startISO) || '—'}</div>
+                <div class='text-slate-700'><span class='font-medium'>Where:</span> ${ev.venue || '—'}</div>
+                <div class='text-slate-500 text-[12px]'>${ev.address || ''}</div>
+              </div>
+
+              <div class='mt-2 text-[12px] text-slate-500'>
+                Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}
+              </div>
             </div>
             <div id='qr_${tkt}' class='justify-self-end'></div>
           `;
@@ -135,7 +153,7 @@
             dateISO: ev.startISO, venue: ev.venue, address: ev.address,
             firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email, cell: buyer.cell
           };
-          new QRCode(qrDiv, { text: JSON.stringify(payloadForQR), width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+          new QRCode(qrDiv, { text: JSON.stringify(payloadForQR), width:120, height:120, correctLevel: QRCode.CorrectLevel.M });
         }
       }
 
