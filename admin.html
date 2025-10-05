@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin — Laudem Dei Chamber Choir</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
+    .card  { @apply glass rounded-2xl border border-slate-200 p-5; }
+    .label { @apply text-sm text-slate-600; }
+    .input { @apply mt-1 w-full border rounded-lg px-3 py-2; }
+    .btn   { @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-semibold; }
+    .btnp  { @apply bg-sky-600 text-white hover:bg-sky-700; }
+    .btns  { @apply border hover:bg-white; }
+    .hint  { @apply text-xs text-slate-500; }
+    .tag   { @apply text-[11px] px-2 py-0.5 rounded-full bg-slate-100 border; }
+  </style>
+</head>
+<body class="bg-white text-slate-800">
+  <!-- Header -->
+  <header class="w-full border-b border-slate-200 bg-white/70 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=19"
+             class="w-10 h-10 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
+             alt="Logo" crossorigin="anonymous" referrerpolicy="no-referrer">
+        <h1 class="text-xl font-bold">Admin — Laudem Dei Chamber Choir</h1>
+      </div>
+      <a href="Welcome.html" class="btn btns">View Site</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <!-- Status -->
+    <div id="status" class="hidden rounded-xl border p-3 text-sm"></div>
+
+    <!-- Site Settings -->
+    <section class="card">
+      <h2 class="text-lg font-semibold">Site Settings</h2>
+      <p class="hint mt-1">Edit logo path and social links. Saved to the “Settings” sheet.</p>
+
+      <form id="settingsForm" class="grid md:grid-cols-3 gap-4 mt-4">
+        <div>
+          <label class="label">Logo URL</label>
+          <input id="logoUrl" class="input" placeholder="https://.../logo.jpeg" required>
+        </div>
+        <div>
+          <label class="label">Facebook URL</label>
+          <input id="facebookUrl" class="input" placeholder="https://facebook.com/...">
+        </div>
+        <div>
+          <label class="label">Instagram URL</label>
+          <input id="instagramUrl" class="input" placeholder="https://instagram.com/...">
+        </div>
+      </form>
+      <div class="mt-4 flex gap-2">
+        <button id="saveSettingsBtn" class="btn btnp">Save Settings</button>
+        <button id="refreshSettingsBtn" class="btn btns">Reload</button>
+      </div>
+    </section>
+
+    <!-- Events -->
+    <section class="card">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">Events</h2>
+          <p class="hint mt-1">Loaded from your published CSV (read). Use the form below to add a new event (write via Apps Script).</p>
+        </div>
+        <button id="reloadEventsBtn" class="btn btns">Reload Events</button>
+      </div>
+
+      <div id="eventsList" class="mt-4 grid gap-3">
+        <!-- Existing events render here -->
+      </div>
+
+      <hr class="my-5">
+
+      <h3 class="font-semibold">Add New Event</h3>
+      <form id="eventForm" class="grid md:grid-cols-2 gap-4 mt-3">
+        <div>
+          <label class="label">ID</label>
+          <input id="ev_id" class="input" placeholder="unique-id" required>
+        </div>
+        <div>
+          <label class="label">Title</label>
+          <input id="ev_title" class="input" placeholder="Spring Serenade Concert" required>
+        </div>
+        <div>
+          <label class="label">Subtitle</label>
+          <input id="ev_subtitle" class="input" placeholder="An evening of choral gems">
+        </div>
+        <div>
+          <label class="label">Start ISO</label>
+          <input id="ev_startISO" class="input" placeholder="2025-10-11T18:30:00+02:00" required>
+        </div>
+        <div>
+          <label class="label">End ISO</label>
+          <input id="ev_endISO" class="input" placeholder="2025-10-11T20:00:00+02:00">
+        </div>
+        <div>
+          <label class="label">Venue</label>
+          <input id="ev_venue" class="input" placeholder="St. Stithians Chapel">
+        </div>
+        <div class="md:col-span-2">
+          <label class="label">Address</label>
+          <input id="ev_address" class="input" placeholder="40 Peter Place, Lyme Park, Sandton, 2191">
+        </div>
+        <div>
+          <label class="label">Image URL</label>
+          <input id="ev_image" class="input" placeholder="https://.../backdrop.jpg">
+        </div>
+        <div>
+          <label class="label">Tickets Link</label>
+          <input id="ev_href" class="input" placeholder="index.html">
+        </div>
+        <div>
+          <label class="label">Active</label>
+          <select id="ev_active" class="input">
+            <option value="TRUE" selected>TRUE</option>
+            <option value="FALSE">FALSE</option>
+          </select>
+        </div>
+      </form>
+      <div class="mt-4">
+        <button id="addEventBtn" class="btn btnp">Add Event</button>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="card">
+      <h2 class="text-lg font-semibold">Pricing</h2>
+      <p class="hint mt-1">Create/update ticket pricing options (writes to the “Pricing” sheet). You can reference these in your front-end.</p>
+
+      <form id="priceForm" class="grid md:grid-cols-3 gap-4 mt-3">
+        <div>
+          <label class="label">Code</label>
+          <input id="pr_code" class="input" placeholder="GEN" required>
+        </div>
+        <div>
+          <label class="label">Name</label>
+          <input id="pr_name" class="input" placeholder="General Admission" required>
+        </div>
+        <div>
+          <label class="label">Price (cents)</label>
+          <input id="pr_price" class="input" type="number" placeholder="20000" required>
+        </div>
+        <div class="md:col-span-3">
+          <label class="label">Notes (optional)</label>
+          <input id="pr_notes" class="input" placeholder="Early bird, limited to 100…">
+        </div>
+      </form>
+      <div class="mt-4">
+        <button id="addPriceBtn" class="btn btnp">Add / Update Price</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ======= CONFIG =======
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=2017023192&single=true&output=csv";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/PASTE_YOUR_DEPLOYMENT_ID_HERE/exec";
+
+    // ======= UI helpers =======
+    const qs = (s,r)=> (r||document).querySelector(s);
+    const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
+
+    function setStatus(msg, kind="info"){
+      const box = qs("#status");
+      box.textContent = msg;
+      box.className = "";
+      box.classList.add("rounded-xl","border","p-3","text-sm","mt-2");
+      if (kind==="ok"){ box.classList.add("border-emerald-200","bg-emerald-50","text-emerald-900"); }
+      else if (kind==="err"){ box.classList.add("border-red-200","bg-red-50","text-red-900"); }
+      else { box.classList.add("border-slate-200","bg-slate-50","text-slate-800"); }
+      box.classList.remove("hidden");
+    }
+    function clearStatus(){ const b=qs("#status"); b.classList.add("hidden"); }
+
+    // ======= CSV parsing =======
+    function parseCSV(text){
+      const rows = [];
+      let cur=[], val="", inQuotes=false;
+      for (let i=0;i<text.length;i++){
+        const ch = text[i], next = text[i+1];
+        if (inQuotes){
+          if (ch === '"' && next === '"'){ val += '"'; i++; }
+          else if (ch === '"'){ inQuotes = false; }
+          else { val += ch; }
+        } else {
+          if (ch === '"'){ inQuotes = true; }
+          else if (ch === ','){ cur.push(val.trim()); val=""; }
+          else if (ch === '\n'){ cur.push(val.trim()); rows.push(cur); cur=[]; val=""; }
+          else if (ch === '\r'){ /* ignore */ }
+          else { val += ch; }
+        }
+      }
+      if (val.length || cur.length){ cur.push(val.trim()); rows.push(cur); }
+      return rows;
+    }
+    function rowsToObjects(rows){
+      if (!rows.length) return [];
+      const headers = rows[0].map(h => (h||"").trim());
+      return rows.slice(1).map(r => {
+        const o = {};
+        headers.forEach((h,i)=> o[h] = r[i] ?? "");
+        return o;
+      });
+    }
+
+    // ======= Render events list (read-only from CSV) =======
+    function fmtDate(iso){
+      const d = new Date(iso);
+      if (isNaN(d)) return "";
+      return new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);
+    }
+    function eventItem(ev){
+      const el = document.createElement("div");
+      el.className = "rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-3";
+      el.innerHTML = `
+        <div class="min-w-0">
+          <div class="font-medium">${ev.title || "Event"} <span class="tag">${ev.active ? "ACTIVE" : "INACTIVE"}</span></div>
+          <div class="text-sm text-slate-600">${ev.subtitle || ""}</div>
+          <div class="text-sm mt-1">
+            ${ev.startISO ? `🗓️ ${fmtDate(ev.startISO)}` : ""} ${ev.venue ? `• 📍 ${ev.venue}` : ""}
+          </div>
+          ${ev.address ? `<div class="text-xs text-slate-500">${ev.address}</div>` : ""}
+          ${ev.href ? `<div class="text-xs text-slate-500 mt-1">Link: <a class="underline" href="${ev.href}">${ev.href}</a></div>` : ""}
+        </div>
+        ${ev.image ? `<img src="${ev.image}" class="w-24 h-16 rounded-lg object-cover border border-slate-200" alt="">` : ""}
+      `;
+      return el;
+    }
+    function normalizeEventRow(r){
+      return {
+        id: r.id || "",
+        title: r.title || "",
+        subtitle: r.subtitle || "",
+        startISO: r.startISO || r.start || "",
+        endISO: r.endISO || r.end || "",
+        venue: r.venue || r.location || "",
+        address: r.address || r.addr || "",
+        image: r.image || "",
+        href: r.href || "",
+        active: (String(r.active||"").toLowerCase()==="true" || r.active===true || r.active==="TRUE")
+      };
+    }
+    async function loadEvents(){
+      const list = qs("#eventsList");
+      list.innerHTML = "";
+      try{
+        const res = await fetch(CSV_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        const rows = parseCSV(text);
+        const objects = rowsToObjects(rows);
+        const events = objects.map(normalizeEventRow)
+          .sort((a,b)=> Date.parse(a.startISO||"") - Date.parse(b.startISO||""));
+        for (const ev of events){
+          list.appendChild(eventItem(ev));
+        }
+        if (!events.length){
+          list.innerHTML = `<div class="text-sm text-slate-500">No events found in sheet.</div>`;
+        }
+      } catch(e){
+        console.error(e);
+        list.innerHTML = `<div class="text-sm text-red-700">Could not load events: ${e.message}</div>`;
+      }
+    }
+
+    // ======= Submissions to Apps Script (WRITE) =======
+    async function postToScript(payload){
+      const r = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload),
+        mode: "cors",
+        redirect: "follow",
+      });
+      const text = await r.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch(_){ data = { ok: r.ok, raw: text }; }
+      if (!r.ok || data.ok === false){
+        const msg = data.error || `HTTP ${r.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    // Save Settings
+    async function saveSettings(){
+      const logo = qs("#logoUrl").value.trim();
+      const fb   = qs("#facebookUrl").value.trim();
+      const ig   = qs("#instagramUrl").value.trim();
+      if (!logo) { setStatus("Logo URL is required.","err"); return; }
+      try{
+        setStatus("Saving settings…");
+        const out = await postToScript({ action:"save_settings", data: { logoUrl:logo, facebook:fb, instagram:ig }});
+        setStatus("Settings saved.", "ok");
+      } catch(e){
+        setStatus("Could not save settings: " + e.message, "err");
+      }
+    }
+
+    // Add Event
+    async function addEvent(){
+      const d = {
+        id: qs("#ev_id").value.trim(),
+        title: qs("#ev_title").value.trim(),
+        subtitle: qs("#ev_subtitle").value.trim(),
+        startISO: qs("#ev_startISO").value.trim(),
+        endISO: qs("#ev_endISO").value.trim(),
+        venue: qs("#ev_venue").value.trim(),
+        address: qs("#ev_address").value.trim(),
+        image: qs("#ev_image").value.trim(),
+        href: qs("#ev_href").value.trim() || "index.html",
+        active: qs("#ev_active").value === "TRUE"
+      };
+      if (!d.id || !d.title || !d.startISO){
+        setStatus("ID, Title and Start ISO are required.","err"); return;
+      }
+      try{
+        setStatus("Adding event…");
+        const out = await postToScript({ action:"add_event", data: d });
+        setStatus("Event added.", "ok");
+        await loadEvents();
+      } catch(e){
+        setStatus("Could not add event: " + e.message, "err");
+      }
+    }
+
+    // Add/Update Price
+    async function addPrice(){
+      const d = {
+        code: qs("#pr_code").value.trim(),
+        name: qs("#pr_name").value.trim(),
+        priceCents: parseInt(qs("#pr_price").value, 10) || 0,
+        notes: qs("#pr_notes").value.trim()
+      };
+      if (!d.code || !d.name || !d.priceCents){
+        setStatus("Code, Name and Price (cents) are required.","err"); return;
+      }
+      try{
+        setStatus("Saving price…");
+        const out = await postToScript({ action:"upsert_price", data: d });
+        setStatus("Pricing saved.", "ok");
+      } catch(e){
+        setStatus("Could not save price: " + e.message, "err");
+      }
+    }
+
+    // (Optional) Load Settings (if you store them in a Settings tab and expose a read endpoint)
+    async function loadSettings(){
+      setStatus("Ready.");
+      setTimeout(clearStatus, 1200);
+    }
+
+    // Wire up
+    document.addEventListener("DOMContentLoaded", () => {
+      qs("#saveSettingsBtn").addEventListener("click", saveSettings);
+      qs("#refreshSettingsBtn").addEventListener("click", loadSettings);
+      qs("#addEventBtn").addEventListener("click", addEvent);
+      qs("#addPriceBtn").addEventListener("click", addPrice);
+      loadEvents();
+      loadSettings();
+    }, { once:true });
+  </script>
+</body>
+</html>
