@@ -50,32 +50,96 @@
 
   <script>
   (function(){
-    const params = new URLSearchParams(location.search);
+    // === CONFIG: Apps Script Web App (/exec) for logging sales to Google Sheets ===
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzUQheAF2duZLO2o5GvUoSWAREJ953gRq-ydXW4HOK_ccX0V64dWlScd8W_xQmwP4t9XQ/exec";
+
+    // Simple, no-preflight POST to Apps Script
+    async function recordSaleToSheets(payload) {
+      try {
+        const r = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" }, // IMPORTANT: 'simple' header to avoid CORS preflight
+          body: JSON.stringify({ action: "record_sale", data: payload })
+        });
+        const text = await r.text();
+        try { return JSON.parse(text); } catch { return { ok: r.ok, raw: text }; }
+      } catch (e) {
+        console.error("[sheets] record_sale failed:", e);
+        return { ok:false, error: String(e) };
+      }
+    }
+
+    // === Existing flow ===
+    const params  = new URLSearchParams(location.search);
     // Expect: ?paid=1&order=...&email=...&v=...&token=...
-    const token = params.get('token') || params.get('t');
+    const token   = params.get('token') || params.get('t');
     const version = params.get('v') || '11'; // cache-buster
     const openBtn = document.getElementById('openTickets');
-    const errBox = document.getElementById('errBox');
-    const note   = document.getElementById('note');
+    const errBox  = document.getElementById('errBox');
+    const note    = document.getElementById('note');
 
-    // Build claim URL to ticket page, preserving cache-buster
+    // Build claim URL to ticket page, preserving cache-buster and token
     let claimUrl = 'ticket.html';
     const qp = new URLSearchParams();
     qp.set('paid', '1');
     qp.set('v', version);
     if (token) qp.set('token', token);
-
     claimUrl += `?${qp.toString()}`;
     openBtn.href = claimUrl;
 
-    // If token missing, warn user (still allow opening the page)
+    // Decode JWT payload (unsigned parse; verification happens server-side in your API)
+    function decodeJwtPayload(t) {
+      try {
+        const parts = t.split('.');
+        if (parts.length < 2) return null;
+        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const json = decodeURIComponent(atob(b64).split('').map(c => {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(json);
+      } catch {
+        return null;
+      }
+    }
+
+    async function maybeRecordSale() {
+      if (!token) return; // Nothing to log without payload
+
+      const payload = decodeJwtPayload(token);
+      if (!payload) {
+        console.warn("[thanks] Could not decode token payload for Sheets logging.");
+        return;
+      }
+
+      // The token your checkout emitted already matches what the Apps Script expects:
+      // { orderId, mode, amountCents, buyer:{...}, event:{...}, items:[...] }
+      const sale = {
+        orderId:     payload.orderId || params.get('order') || '',
+        mode:        (payload.mode || '').toLowerCase() === 'live' ? 'live' : 'test',
+        amountCents: Number(payload.amountCents) || 0,
+        checkoutId:  payload.checkoutId || '',   // optional; include if you added it when creating the token
+        paymentRef:  payload.paymentRef  || '',   // optional
+        buyer:       payload.buyer || {},
+        event:       payload.event || {},
+        items:       Array.isArray(payload.items) ? payload.items : []
+        // tickets:  [...] // optional; omit to let Apps Script auto-generate per qty
+      };
+
+      const res = await recordSaleToSheets(sale);
+      console.log("[sheets] record_sale result:", res);
+      // No UI change required; this is silent logging.
+    }
+
+    // Warn if no token (user can still open ticket page)
     if (!token) {
       errBox.textContent = "We couldn't detect a ticket token in the link. You can still open tickets, but if they don't load, please return via the email/SMS link after payment.";
       errBox.classList.remove('hidden');
       note.textContent = "Tip: Use the link from your confirmation page or email to ensure tickets load automatically.";
+    } else {
+      // Try to record the sale once when we have a token
+      maybeRecordSale();
     }
   })();
   </script>
 </body>
 </html>
-
