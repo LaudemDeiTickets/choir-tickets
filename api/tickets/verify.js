@@ -3,7 +3,6 @@ import crypto from "crypto";
 
 const ALLOW_ORIGIN = process.env.CORS_ORIGIN || "*";
 
-// base64url helpers
 function b64urlEncode(buf) {
   return Buffer.from(buf).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
@@ -12,7 +11,6 @@ function b64urlDecode(input) {
   const s = input.replace(/-/g, "+").replace(/_/g, "/");
   return Buffer.from(pad(s), "base64");
 }
-
 function timingSafeEq(a, b) {
   const A = Buffer.from(a);
   const B = Buffer.from(b);
@@ -25,16 +23,11 @@ function verifyJWT(token, secret) {
     throw new Error("Malformed token");
   }
   const [h, p, s] = token.split(".");
-  // recompute signature
   const data = `${h}.${p}`;
   const sig = crypto.createHmac("sha256", secret).update(data).digest();
   const expected = b64urlEncode(sig);
+  if (!timingSafeEq(Buffer.from(s), Buffer.from(expected))) throw new Error("Invalid signature");
 
-  if (!timingSafeEq(Buffer.from(s), Buffer.from(expected))) {
-    throw new Error("Invalid signature");
-  }
-
-  // decode & parse header/payload
   let header, payload;
   try {
     header = JSON.parse(b64urlDecode(h).toString("utf8"));
@@ -46,15 +39,9 @@ function verifyJWT(token, secret) {
     throw new Error("Unsupported token");
   }
 
-  // iat/exp with 5 min skew
-  const now = Math.floor(Date.now() / 1000);
-  const skew = 300; // 5 minutes
-  if (typeof payload.iat === "number" && payload.iat > now + skew) {
-    throw new Error("Token not yet valid");
-  }
-  if (typeof payload.exp === "number" && payload.exp < now - skew) {
-    throw new Error("Token expired");
-  }
+  const now = Math.floor(Date.now()/1000), skew = 300;
+  if (typeof payload.iat === "number" && payload.iat > now + skew) throw new Error("Token not yet valid");
+  if (typeof payload.exp === "number" && payload.exp < now - skew) throw new Error("Token expired");
 
   return payload;
 }
@@ -70,30 +57,26 @@ export default async function handler(req, res) {
     if (!secret) return res.status(500).json({ ok:false, error:"Missing TICKET_SIGNING_SECRET" });
 
     let token = "";
-    if (req.method === "GET") {
-      token = (req.query?.token || req.query?.t || "").toString();
-    } else if (req.method === "POST") {
-      token = (req.body?.token || "").toString();
-    } else {
-      return res.status(405).send("Method Not Allowed");
-    }
+    if (req.method === "GET") token = (req.query?.token || req.query?.t || "").toString();
+    else if (req.method === "POST") token = (req.body?.token || "").toString();
+    else return res.status(405).send("Method Not Allowed");
 
     if (!token) return res.status(400).json({ ok:false, error:"No token" });
 
     const payload = verifyJWT(token, secret);
 
-    // 👉 Optionally: also check this order is marked 'paid' in your DB/webhook storage
-    // const isPaid = await isOrderPaid(payload.orderId)
-    // if (!isPaid) return res.status(403).json({ ok:false, error:"Order not paid yet" });
-
+    // (Optional) also check DB/webhook that orderId is paid.
+    // For now we just return the payload so the client can render tickets.
     return res.status(200).json({
       ok: true,
-      tokenValid: true,
       orderId: payload.orderId,
-      email: payload.email,
+      email: payload?.buyer?.email || "",
       mode: payload.mode || "live",
-      iat: payload.iat,
-      exp: payload.exp
+      items: payload.items || [],
+      event: payload.event || {},
+      buyer: payload.buyer || {},
+      amountCents: payload.amountCents || 0,
+      iat: payload.iat, exp: payload.exp
     });
   } catch (e) {
     return res.status(400).json({ ok:false, error: e?.message || "Could not verify token" });
