@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   try {
     const { amountCents, description, successUrl, cancelUrl, meta, mode } = req.body || {};
-    console.log("[checkout] incoming successUrl:", successUrl, "cancelUrl:", cancelUrl); // 👈
+    console.log("[checkout] incoming successUrl:", successUrl, "cancelUrl:", cancelUrl);
 
     const isTest = (mode || "").toString().toLowerCase() === "test";
     const key = isTest
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       })
     });
     const p = await r.json().catch(() => ({}));
-    console.log("[checkout] yoco response successUrl:", p?.successUrl, "cancelUrl:", p?.cancelUrl, "redirectUrl:", p?.redirectUrl); // 👈
+    console.log("[checkout] yoco response successUrl:", p?.successUrl, "cancelUrl:", p?.cancelUrl, "redirectUrl:", p?.redirectUrl);
 
     if (!r.ok) return res.status(400).json({ ok:false, error: p?.message || `Yoco ${r.status}` });
 
@@ -50,4 +50,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok:false, error: e?.message || "Server error" });
   }
 }
-
