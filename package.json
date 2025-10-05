@@ -4,13 +4,9 @@
   "type": "module",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.54",
+    "qrcode": "^1.5.3"
   }
 }
-
-{
-  "name": "ticket-layout-demo",
-  "private": true,
-  "type": "module",
-  "engines": { "node": ">=18" }
-}
-
