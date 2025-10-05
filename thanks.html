@@ -64,6 +64,11 @@
     const url = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
     btn.onclick = ()=> { location.href = url; };
     hint.textContent = "Token detected in the URL — you can open your tickets now.";
+
+    fetch('https://choir-tickets.vercel.app/api/email/claim', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token })
+    }).catch(()=>{});
   } else {
     hint.textContent = "No token yet — we will email you a secure link as soon as the payment webhook arrives.";
   }
@@ -71,24 +76,5 @@
   qs('#refresh').onclick = ()=> location.reload();
 })();
 </script>
-
-<script>
-(async function(){
-  const params = new URLSearchParams(location.search);
-  const token = params.get('token');
-  if (!token) return;
-
-  // Fire-and-forget: ask the server to email the claim link
-  try {
-    await fetch('https://choir-tickets.vercel.app/api/email/claim', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ token })
-    });
-  } catch(_) {}
-})();
-</script>
-
-  
 </body>
 </html>
