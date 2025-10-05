@@ -14,17 +14,14 @@
   <style>
     html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
-    .ticket-card{
-      background:#fff;border:2px solid #e2e8f0;border-radius:16px;
-      box-shadow:0 8px 20px rgba(2,132,199,0.08);overflow:hidden;padding:16px;
-    }
+    .ticket-card{ background:#fff;border:2px solid #e2e8f0;border-radius:16px;box-shadow:0 8px 20px rgba(2,132,199,0.08);overflow:hidden;padding:16px; }
   </style>
 </head>
 <body class="bg-white text-slate-800">
   <div class="max-w-3xl mx-auto px-4 py-6">
     <header class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=8"
+        <img id="orgLogo" src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=9"
              alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
              crossorigin="anonymous" referrerpolicy="no-referrer">
         <div>
@@ -35,17 +32,14 @@
       <a href="index.html" class="text-sm underline hover:no-underline">Back to tickets</a>
     </header>
 
-    <!-- Error banner -->
     <div id="errBox" class="hidden mt-4 rounded-xl border border-red-200 bg-red-50 text-red-900 p-3 text-sm"></div>
 
-    <!-- Event summary -->
     <section id="eventBox" class="mt-6 glass rounded-2xl border border-slate-200 p-5 hidden">
       <h2 id="evTitle" class="text-lg font-semibold"></h2>
       <p id="evMeta" class="text-sm text-slate-600"></p>
       <p id="evAddr" class="text-sm text-slate-700"></p>
     </section>
 
-    <!-- Tickets -->
     <section id="successWrap" class="hidden mt-6">
       <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
         <p class="font-semibold">Tickets ready</p>
@@ -69,122 +63,45 @@
   (function(){
     'use strict';
 
-    // ===== helpers =====
+    const FALLBACK_EVENT = {
+      id: "choir-2025-spring-concert",
+      title: "Spring Serenade Concert",
+      subtitle: "An evening of choral gems",
+      startISO: "2025-10-11T18:30:00+02:00",
+      endISO: "2025-10-11T20:00:00+02:00",
+      venue: "St. Stithians Chapel",
+      address: "40 Peter Place, Lyme Park, Sandton, 2191"
+    };
+
     const qs = (s,r)=> (r||document).querySelector(s);
     const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
-    const toHuman = (iso)=> {
-      if(!iso) return '';
-      const d = new Date(iso);
-      if (isNaN(d.valueOf())) return '';
-      return new Intl.DateTimeFormat(undefined,{
-        weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'
-      }).format(d);
-    };
+    const toHuman = (iso)=> { if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return ''; return new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d); };
     function showError(msg){ const b=qs('#errBox'); b.textContent=msg||'Error'; b.classList.remove('hidden'); }
     function onlyDigits(s){ return String(s||'').replace(/[^0-9]+/g,''); }
     function toWhatsAppNum(input){ const d=onlyDigits(input); if(!d) return ''; if(d.startsWith('27')) return d; if(d.startsWith('0')) return '27'+d.slice(1); return d; }
-    const nvl = (a,b)=> (a==null || a==='' ? b : a);
 
-    // Normalize event object from various shapes
-    function normalizeEvent(raw){
-      const ev = raw?.event || raw?.meta?.event || raw?.claim?.event || {};
-      // try multiple keys for the start time
-      let startISO = ev.startISO || ev.dateISO || ev.start || ev.startTime || null;
-      if (!startISO && (typeof ev.startTs === 'number')) startISO = new Date(ev.startTs).toISOString();
-      // venue fallback
-      const venue = nvl(ev.venue, ev.location);
-      // address fallback
-      const address = ev.address || ev.addr || '';
-      // title fallback
-      const title = ev.title || raw?.title || 'Event';
-      // id fallback
-      const id = ev.id || raw?.eventId || 'event';
-      // potential end
-      const endISO = ev.endISO || ev.end || null;
-      const subtitle = ev.subtitle || '';
-      return { id, title, subtitle, startISO, endISO, venue, address };
-    }
+    function toICSDate(iso){ const d=new Date(iso); const pad=n=>String(n).padStart(2,'0'); return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+pad(d.getUTCMinutes())+pad(d.getUTCSeconds())+'Z'; }
+    function downloadICSFromEvent(ev){ if(!ev||!ev.startISO){alert('Missing event details.');return;} const start=new Date(ev.startISO); const endISO=ev.endISO||new Date(start.getTime()+2*60*60*1000).toISOString(); const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Laudem Dei//Tickets//EN','BEGIN:VEVENT',`UID:${(ev.id||'event')+'@laudemdei.org.za'}`,`DTSTAMP:${toICSDate(new Date().toISOString())}`,`DTSTART:${toICSDate(ev.startISO)}`,`DTEND:${toICSDate(endISO)}`,`SUMMARY:${(ev.title||'Event').replace(/\r?\n/g,' ')}`,`DESCRIPTION:${(ev.subtitle||'').replace(/\r?\n/g,' ')}`,`LOCATION:${[(ev.venue||''),(ev.address||'')].filter(Boolean).join(', ').replace(/\r?\n/g,' ')}`,'END:VEVENT','END:VCALENDAR'].join('\r\n'); const blob=new Blob([lines],{type:'text/calendar;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${(ev.id||'event')}.ics`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
 
-    // Normalize items (tickets) array
-    function normalizeItems(raw){
-      const arr = Array.isArray(raw?.items) ? raw.items :
-                  Array.isArray(raw?.lineItems) ? raw.lineItems : [];
-      // ensure shape {name, qty, priceCents}
-      return arr.map(it => ({
-        name: it.name || it.title || 'Admission',
-        qty: Number.isFinite(it.qty) ? it.qty : (Number.isFinite(it.quantity) ? it.quantity : 1),
-        priceCents: Number.isFinite(it.priceCents) ? it.priceCents :
-                    (Number.isFinite(it.unitAmount) ? it.unitAmount : 0),
-        code: it.code || it.sku || 'GEN'
-      }));
-    }
+    function mergeEvent(ev){ const e = Object.assign({}, FALLBACK_EVENT, ev||{}); for (const k of ['title','subtitle','startISO','endISO','venue','address']) { if (!e[k]) e[k] = FALLBACK_EVENT[k]; } return e; }
 
-    // ---- Calendar (.ics) helpers ----
-    function toICSDate(iso) {
-      const d = new Date(iso);
-      const pad = (n)=> String(n).padStart(2,'0');
-      return d.getUTCFullYear()
-        + pad(d.getUTCMonth()+1)
-        + pad(d.getUTCDate())
-        + 'T'
-        + pad(d.getUTCHours())
-        + pad(d.getUTCMinutes())
-        + pad(d.getUTCSeconds())
-        + 'Z';
-    }
-    function downloadICSFromEvent(ev) {
-      if (!ev || !ev.startISO) { alert('Missing event details.'); return; }
-      const start = new Date(ev.startISO);
-      const endISO = ev.endISO || new Date(start.getTime() + 2 * 60 * 60 * 1000).toISOString(); // +2h default
-      const lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//Laudem Dei//Tickets//EN',
-        'BEGIN:VEVENT',
-        `UID:${(ev.id || 'event') + '@laudemdei.org.za'}`,
-        `DTSTAMP:${toICSDate(new Date().toISOString())}`,
-        `DTSTART:${toICSDate(ev.startISO)}`,
-        `DTEND:${toICSDate(endISO)}`,
-        `SUMMARY:${(ev.title || 'Event').replace(/\r?\n/g,' ')}`,
-        `DESCRIPTION:${(ev.subtitle || '').replace(/\r?\n/g,' ')}`,
-        `LOCATION:${[(ev.venue||''), (ev.address||'')].filter(Boolean).join(', ').replace(/\r?\n/g,' ')}`,
-        'END:VEVENT',
-        'END:VCALENDAR'
-      ].join('\r\n');
-
-      const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${(ev.id || 'event')}.ics`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-
-    // ===== verify token on server =====
     async function loadFromToken(){
       const params = new URLSearchParams(location.search);
       const token = params.get('token') || params.get('t');
       if (!token){ showError('Missing token'); return null; }
-
       try{
         const resp = await fetch('https://choir-tickets.vercel.app/api/tickets/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
         });
-        const raw = await resp.json();
-        if (!resp.ok || !raw.ok) throw new Error(raw?.error || ('verify '+resp.status));
-
-        // Different backends might return {ok:true, ...payload} or {ok:true, payload:{...}}
-        const payload = raw.payload || raw;
-
-        // normalize shapes
-        const ev = normalizeEvent(payload);
-        const items = normalizeItems(payload);
-        const buyer = payload.buyer || payload.customer || payload.meta?.buyer || {};
-
-        return { token, payload: { ...payload, event: ev, items, buyer } };
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) throw new Error(data?.error || ('verify '+resp.status));
+        const payload = data.payload || data;
+        payload.event = mergeEvent(payload.event);
+        payload.items = Array.isArray(payload.items) ? payload.items : (Array.isArray(payload.lineItems) ? payload.lineItems : []);
+        payload.buyer = payload.buyer || payload.customer || payload.meta?.buyer || {};
+        return { token, payload };
       } catch(e){
         console.error(e);
         showError('Could not verify ticket link. ' + (e.message||''));
@@ -192,30 +109,21 @@
       }
     }
 
-    // ===== render tickets =====
     function renderTickets(ctx){
-      const payload = ctx.payload || {};
-      const ev = payload.event || {};
-      const buyer = payload.buyer || {};
-      const items = Array.isArray(payload.items) ? payload.items : [];
+      const p = ctx.payload || {};
+      const ev = p.event || FALLBACK_EVENT;
+      const buyer = p.buyer || {};
+      const items = Array.isArray(p.items) ? p.items : [];
 
-      // Header summary (+ address)
-      qs('#orderIdOut').textContent = payload.orderId || payload.order_id || '—';
-
-      const when = toHuman(ev.startISO);
-      const where = ev.venue || '';
-      const addr  = ev.address || '';
-
+      qs('#orderIdOut').textContent = p.orderId || '—';
       qs('#evTitle').textContent = ev.title || 'Event';
-      qs('#evMeta').textContent = [when, where].filter(Boolean).join(' • ') || 'Details to follow';
-      qs('#evAddr').textContent = addr;
+      qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue].filter(Boolean).join(' • ') || 'Details to follow';
+      qs('#evAddr').textContent = ev.address || '';
       qs('#eventBox').classList.remove('hidden');
 
-      // Logo (cache-bust)
-      const logoUrl = (payload.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=8';
+      const logoUrl = (p.orgLogo || 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg') + '?v=9';
       const headerLogo = qs('#orgLogo'); if (headerLogo) headerLogo.src = logoUrl;
 
-      // Tickets
       const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
       for (const it of items){
         const qty = Math.max(1, Number(it.qty||1));
@@ -234,33 +142,20 @@
                   <div class='text-[12px] text-slate-500'>${it.name || 'Admission'} • Ticket ID: ${tkt}</div>
                 </div>
               </div>
-
               <div class='mt-2 text-[13px]'>
-                <div class='text-slate-700'><span class='font-medium'>When:</span> ${when || '—'}</div>
-                <div class='text-slate-700'><span class='font-medium'>Where:</span> ${where || '—'}</div>
-                <div class='text-slate-500 text-[12px]'>${addr}</div>
+                <div class='text-slate-700'><span class='font-medium'>When:</span> ${toHuman(ev.startISO) || '—'}</div>
+                <div class='text-slate-700'><span class='font-medium'>Where:</span> ${ev.venue || '—'}</div>
+                <div class='text-slate-500 text-[12px]'>${ev.address || ''}</div>
               </div>
-
               <div class='mt-2 text-[12px] text-slate-500'>
-                Buyer: ${(buyer.firstName||buyer.first_name||'')} ${(buyer.lastName||buyer.last_name||'')}
-                ${buyer.cell ? ' • ' + buyer.cell : ''}
+                Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')}${buyer.cell ? ' • '+buyer.cell : ''}
               </div>
             </div>
             <div id='qr_${tkt}' class='justify-self-end'></div>
           `;
           wrap.appendChild(row);
-
-          // QR payload
           const qrDiv = row.querySelector('#qr_'+tkt);
-          const qrPayload = {
-            order: payload.orderId || payload.order_id,
-            ticket: tkt,
-            event: ev.id, title: ev.title,
-            dateISO: ev.startISO, venue: ev.venue, address: ev.address,
-            firstName: buyer.firstName || buyer.first_name,
-            lastName:  buyer.lastName  || buyer.last_name,
-            email:     buyer.email, cell: buyer.cell
-          };
+          const qrPayload = { order: p.orderId, ticket: tkt, event: ev.id, title: ev.title, dateISO: ev.startISO, venue: ev.venue, address: ev.address, firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email, cell: buyer.cell };
           new QRCode(qrDiv, { text: JSON.stringify(qrPayload), width:120, height:120, correctLevel: QRCode.CorrectLevel.M });
         }
       }
@@ -269,7 +164,6 @@
       qs('#shareHint').textContent = 'Tip: On Windows/Edge the native Share panel lets you send PNGs to WhatsApp, Outlook, etc.';
     }
 
-    // ===== capture all ticket cards as PNG Files =====
     async function captureTicketPNGs(){
       const rows = qsa('#ticketsWrap > div');
       const files = [];
@@ -285,9 +179,8 @@
       return files;
     }
 
-    // ===== wire buttons =====
     function wireActions(ctx){
-      const ev = ctx?.payload?.event || {};
+      const ev = ctx?.payload?.event || FALLBACK_EVENT;
       const buyer = ctx?.payload?.buyer || {};
       const dlBtn = qs('#pngBtn');
       const shareBtn = qs('#shareAllBtn');
@@ -322,7 +215,9 @@
           const text = `🎟️ ${ev?.title || 'Your tickets'}${ctx?.payload?.orderId ? `\nOrder ${ctx.payload.orderId}` : ''}\n${claimUrl}`;
           const waNum = toWhatsAppNum(buyer?.cell || '');
           const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
-          const a = qs('#whatsFallback'); a.href = wurl; a.classList.remove('hidden'); a.click();
+          waFallback.href = wurl;
+          waFallback.classList.remove('hidden');
+          waFallback.click();
         } catch(e){
           console.error(e);
           alert('Sharing not supported on this device. We’ll download PNGs so you can share manually.');
@@ -333,13 +228,13 @@
       qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
     }
 
-    // ===== boot =====
     (async function boot(){
       const ctx = await loadFromToken();
       if (!ctx) return;
       renderTickets(ctx);
       wireActions(ctx);
     })();
+
   })();
   </script>
 </body>
