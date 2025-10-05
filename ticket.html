@@ -1,102 +1,246 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Thanks — Payment Received</title>
+  <title>Your Tickets</title>
   <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#475569;--brand:#0ea5e9;--ok:#10b981;--bd:#e2e8f0}
-    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
-    body{background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:0 12px 40px rgba(2,132,199,.08);max-width:680px;width:100%;padding:24px}
-    h1{margin:0 0 8px 0;font-size:22px}
-    p{margin:8px 0;color:var(--muted)}
-    .badge{display:inline-block;background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.3);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;margin-bottom:10px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
-    .btn{appearance:none;border:1px solid var(--bd);background:#fff;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
-    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .meta{margin-top:12px;font-size:12px;color:var(--muted)}
-    code{background:#f1f5f9;border:1px solid var(--bd);padding:2px 6px;border-radius:6px}
-    a{color:var(--brand);text-decoration:none}
-    a:hover{text-decoration:underline}
-    .hint{font-size:12px;color:#475569;margin-top:6px}
-    .ok{color:#065f46}
-    .err{color:#991b1b}
+    html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .glass { background: rgba(255,255,255,.72); backdrop-filter: blur(10px); }
   </style>
 </head>
-<body>
-  <main class="card">
-    <div class="badge">Payment received</div>
-    <h1>Thanks! Your tickets are ready.</h1>
-    <p>Open your tickets now or send them via WhatsApp.</p>
+<body class="bg-white text-slate-800">
+  <div class="max-w-3xl mx-auto px-4 py-6">
+    <header class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg" alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white">
+        <div>
+          <h1 class="text-xl font-bold">Your Tickets</h1>
+          <p class="text-sm text-slate-500">Save or share your tickets below</p>
+        </div>
+      </div>
+      <a href="index.html" class="text-sm underline hover:no-underline">Back to tickets</a>
+    </header>
 
-    <div class="row">
-      <button id="openTickets" class="btn primary" disabled>Open tickets</button>
-      <button id="waTickets" class="btn" disabled>WhatsApp tickets</button>
-    </div>
+    <!-- Error banner -->
+    <div id="errBox" class="hidden mt-4 rounded-xl border border-red-200 bg-red-50 text-red-900 p-3 text-sm"></div>
 
-    <div class="hint" id="hint"></div>
+    <!-- Event summary -->
+    <section id="eventBox" class="mt-6 glass rounded-2xl border border-slate-200 p-5 hidden">
+      <h2 id="evTitle" class="text-lg font-semibold"></h2>
+      <p id="evMeta" class="text-sm text-slate-600"></p>
+    </section>
 
-    <div class="meta">
-      <div>Order ID: <code id="orderBox">—</code></div>
-      <div>Email: <code id="emailBox">—</code></div>
-      <div id="statusBox" class="hint"></div>
-      <div class="hint">If you updated this page and still see an older version, hard-refresh or append <code>&v=3</code> to the URL.</div>
-    </div>
-  </main>
+    <!-- Tickets -->
+    <section id="successWrap" class="hidden mt-6">
+      <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+        <p class="font-semibold">Tickets ready</p>
+        <p class="text-sm">Order <span id="orderIdOut"></span> — Download or share your ticket(s).</p>
+      </div>
+      <div id="ticketsWrap" class="mt-3 text-sm"></div>
 
-<script>
-(function(){
-  const qs = (s,r)=> (r||document).querySelector(s);
-  const params = new URLSearchParams(location.search);
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button id="pngBtn" class="px-5 py-3 rounded-xl bg-slate-800 text-white font-semibold hover:opacity-90" type="button">Download PNG</button>
+        <button id="shareAllBtn" class="px-5 py-3 rounded-xl border hover:bg-white" type="button">Share all</button>
+        <a id="whatsFallback" class="px-5 py-3 rounded-xl border hover:bg-white hidden" target="_blank" rel="noopener">Open WhatsApp</a>
+        <button id="doneBtn" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700" type="button">Done</button>
+      </div>
+      <p id="shareHint" class="text-xs text-slate-500 mt-2"></p>
+    </section>
+  </div>
 
-  const order = params.get('order') || '';
-  const email = params.get('email') || '';
-  const token = params.get('token') || '';
-  const claimBase = params.get('claimBase') || 'ticket.html'; // change if needed
+  <script>
+  (function(){
+    'use strict';
 
-  qs('#orderBox').textContent = order || '—';
-  qs('#emailBox').textContent = email || '—';
+    // --- helpers ---
+    const qs = (s,r)=> (r||document).querySelector(s);
+    const qsa = (s,r)=> Array.from((r||document).querySelectorAll(s));
+    const toHuman = (iso)=> iso ? new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)) : '';
+    function showError(msg){ const b=qs('#errBox'); b.textContent=msg||'Error'; b.classList.remove('hidden'); }
+    function onlyDigits(s){ return String(s||'').replace(/[^0-9]+/g,''); }
+    function toWhatsAppNum(input){ const d=onlyDigits(input); if(!d) return ''; if(d.startsWith('27')) return d; if(d.startsWith('0')) return '27'+d.slice(1); return d; }
 
-  const openBtn = qs('#openTickets');
-  const waBtn = qs('#waTickets');
-  const hint = qs('#hint');
-  const statusBox = qs('#statusBox');
+    // --- read token & verify on server ---
+    async function loadFromToken(){
+      const params = new URLSearchParams(location.search);
+      const token = params.get('token') || params.get('t');
+      if (!token){ showError('Missing token'); return null; }
 
-  if (token) {
-    openBtn.disabled = false;
-    waBtn.disabled = false;
-
-    const ticketUrl = `${claimBase}?paid=1&token=${encodeURIComponent(token)}`;
-    openBtn.onclick = () => { location.href = ticketUrl; };
-
-    waBtn.onclick = async () => {
-      statusBox.textContent = "Preparing WhatsApp message…";
-      try {
-        const resp = await fetch('https://choir-tickets.vercel.app/api/sendall', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ token, action:'whatsapp' })
+      try{
+        const resp = await fetch('https://choir-tickets.vercel.app/api/tickets/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
         });
-        const j = await resp.json().catch(()=> ({}));
-        if (resp.ok && j.ok && j.waLink) {
-          statusBox.textContent = "";
-          window.open(j.waLink, "_blank");
-        } else {
-          statusBox.innerHTML = "<span class='err'>Could not build WhatsApp link: " + (j?.error || resp.status) + "</span>";
-        }
-      } catch {
-        statusBox.innerHTML = "<span class='err'>Network error preparing WhatsApp</span>";
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) throw new Error(data?.error || ('verify ' + resp.status));
+        return { token, payload: data };
+      } catch(e){
+        showError('Could not verify ticket link. ' + (e.message||''));
+        return null;
       }
-    };
+    }
 
-    hint.textContent = "Token detected — you can open or WhatsApp your tickets now.";
-  } else {
-    hint.textContent = "No token present in URL. If you completed payment, use the link from Yoco or contact support.";
-  }
-})();
-</script>
+    // --- render tickets ---
+    function renderTickets({ payload }){
+      const wrap = qs('#ticketsWrap'); wrap.innerHTML = '';
+      const ev = payload.event || {};
+      const buyer = payload.buyer || {};
+      const items = Array.isArray(payload.items) ? payload.items : [];
+
+      // header
+      qs('#orderIdOut').textContent = payload.orderId || '—';
+      const evBox = qs('#eventBox');
+      qs('#evTitle').textContent = ev.title || 'Event';
+      qs('#evMeta').textContent = [toHuman(ev.startISO), ev.venue, ev.address].filter(Boolean).join(' • ');
+      evBox.classList.remove('hidden');
+
+      // build cards from items
+      const logoUrl = 'https://laudemdeitickets.github.io/choir-tickets/logo.jpeg';
+      for (const it of items){
+        const qty = Math.max(1, Number(it.qty||1));
+        for (let i=0; i<qty; i++){
+          const tkt = 'TKT-' + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+          const row = document.createElement('div');
+          row.className = 'grid grid-cols-[1fr,110px] gap-3 border border-slate-200 rounded-lg px-3 py-3 mt-2 items-center';
+          row.setAttribute('data-ticket-id', tkt);
+          row.innerHTML = `
+            <div>
+              <div class='flex items-center gap-2'>
+                <img src='${logoUrl}' crossorigin='anonymous' class='w-7 h-7 rounded-md ring-1 ring-slate-200 object-contain' alt='logo' />
+                <div class='font-medium'>${it.name || 'Admission'}</div>
+              </div>
+              <div class='text-xs text-slate-500'>${tkt}</div>
+              <div class='text-xs text-slate-600 mt-1'>${toHuman(ev.startISO)}${ev.venue ? ' • ' + ev.venue : ''}</div>
+              <div class='text-[11px] text-slate-500'>${ev.address || ''}</div>
+              <div class='text-[11px] text-slate-500 mt-1'>Buyer: ${(buyer.firstName||'')} ${(buyer.lastName||'')} • ${(buyer.cell||'')}</div>
+            </div>
+            <div id='qr_${tkt}' class='justify-self-end'></div>
+          `;
+          wrap.appendChild(row);
+
+          const qrDiv = row.querySelector('#qr_'+tkt);
+          const payload = {
+            order: payload.orderId, ticket: tkt,
+            event: ev.id, title: ev.title,
+            dateISO: ev.startISO, venue: ev.venue, address: ev.address,
+            firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email, cell: buyer.cell
+          };
+          new QRCode(qrDiv, { text: JSON.stringify(payload), width:110, height:110, correctLevel: QRCode.CorrectLevel.M });
+        }
+      }
+
+      qs('#successWrap').classList.remove('hidden');
+
+      // Share hint
+      const hint = qs('#shareHint');
+      hint.textContent = 'Tip: On Windows/Edge you’ll see the native Share panel (WhatsApp, Outlook, etc.).';
+    }
+
+    // --- capture all ticket cards as PNG Files ---
+    async function captureTicketPNGs(){
+      const rows = qsa('#ticketsWrap > div');
+      const files = [];
+      let i=0;
+      for (const row of rows){
+        // beautify for export
+        const prev = { backgroundColor: row.style.backgroundColor, borderRadius: row.style.borderRadius, border: row.style.border, boxShadow: row.style.boxShadow, overflow: row.style.overflow, padding: row.style.padding };
+        row.style.backgroundColor = '#ffffff';
+        row.style.borderRadius = '16px';
+        row.style.border = '2px solid #e2e8f0';
+        row.style.boxShadow = '0 8px 20px rgba(2,132,199,0.08)';
+        row.style.overflow = 'hidden';
+        row.style.padding = row.style.padding || '12px 16px';
+
+        const canvas = await html2canvas(row, { backgroundColor:'#ffffff', scale:2, useCORS:true });
+
+        // revert
+        row.style.backgroundColor = prev.backgroundColor;
+        row.style.borderRadius = prev.borderRadius;
+        row.style.border = prev.border;
+        row.style.boxShadow = prev.boxShadow;
+        row.style.overflow = prev.overflow;
+        row.style.padding = prev.padding;
+
+        const blob = await new Promise(res=> canvas.toBlob(b=>res(b), 'image/png'));
+        if (!blob) continue;
+        const tid = row.dataset.ticketId || `ticket_${++i}`;
+        files.push(new File([blob], `choir-2025-spring-concert_${tid}.png`, { type:'image/png' }));
+        if (files.length >= 10) break; // practical limit
+      }
+      return files;
+    }
+
+    // --- wire buttons: Download PNG + Share all (native) ---
+    function wireActions(payload){
+      const buyer = payload?.buyer || {};
+      const ev = payload?.event || {};
+      const shareBtn = qs('#shareAllBtn');
+      const dlBtn = qs('#pngBtn');
+      const waFallback = qs('#whatsFallback');
+
+      dlBtn.onclick = async function(){
+        const files = await captureTicketPNGs();
+        if (!files.length) { alert('No tickets to export.'); return; }
+        for (const f of files){
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(f);
+          a.download = f.name;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          await new Promise(r=>setTimeout(r,120));
+        }
+      };
+
+      shareBtn.onclick = async function(){
+        try{
+          const files = await captureTicketPNGs();
+          if (!files.length) { alert('No tickets to share.'); return; }
+
+          if (navigator.canShare && navigator.canShare({ files })){
+            await navigator.share({
+              files,
+              title: ev?.title || 'Your tickets',
+              text: 'Your tickets are attached.'
+            });
+            return;
+          }
+
+          // Fallback: wa.me with claim link (no file attach via wa.me)
+          const params = new URLSearchParams(location.search);
+          const token = params.get('token') || '';
+          const claimUrl = token ? `${location.origin}${location.pathname}?paid=1&token=${encodeURIComponent(token)}` : location.href;
+          const text = `🎟️ ${ev?.title || 'Your tickets'}\nOrder ${payload?.orderId || ''}\n${claimUrl}`;
+          const waNum = toWhatsAppNum(buyer?.cell || '');
+          const wurl = waNum ? `https://wa.me/${waNum}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+          waFallback.href = wurl;
+          waFallback.classList.remove('hidden');
+          waFallback.click();
+        } catch(e){
+          console.error(e);
+          alert('Sharing is not supported on this device. We’ll download PNGs so you can share them manually.');
+          dlBtn.click();
+        }
+      };
+
+      qs('#doneBtn').onclick = ()=> window.location.href = 'index.html';
+    }
+
+    // --- boot ---
+    (async function boot(){
+      const ctx = await loadFromToken();
+      if (!ctx) return;
+      renderTickets(ctx);
+      wireActions(ctx.payload);
+    })();
+  })();
+  </script>
 </body>
 </html>
