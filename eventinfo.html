@@ -1,294 +1,245 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Laudem Dei Chamber Choir — Tickets</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>html,body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}</style>
-</head>
-<body class="bg-white text-slate-800">
-  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
-    <nav class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img id="brandLogo" class="h-40 w-40 rounded-xl object-contain bg-white ring-1 ring-slate-200 p-1" alt="Logo">
-        <div class="font-semibold">Laudem Dei Chamber Choir</div>
-      </div>
-      <!-- Go Back button -->
-      <div class="flex items-center">
-        <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 text-sm hover:bg-slate-50">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M15 18l-6-6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Go Back
-        </a>
-      </div>
-    </nav>
-  </header>
+<script>
+  // --- Config / constants ---
+  const STORAGE_KEYS = {
+    CONFIG: 'choir_config_override',
+    CART: 'choir_cart',
+    SELECTED: 'choir_selected_event'
+  };
 
-  <main class="max-w-5xl mx-auto px-4 py-10">
-    <section class="grid md:grid-cols-2 gap-8 items-center">
-      <div>
-        <h1 id="eventTitle" class="text-3xl md:text-4xl font-extrabold leading-tight"></h1>
-        <p id="eventSubtitle" class="mt-2 text-slate-600"></p>
-        <ul class="mt-4 text-slate-700 space-y-1">
-          <li>📍 <a id="venueLink" href="#" class="underline decoration-sky-400 underline-offset-4"> <span id="venue"></span></a></li>
-          <li>🗓️ <span id="dateHuman"></span> • Doors <span id="doorsHuman"></span></li>
-          <li class="text-sm text-slate-600" id="address"></li>
-        </ul>
-        <div class="mt-6 flex gap-3">
-          <a href="#tickets" class="px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold">Get Tickets</a>
-        </div>
-      </div>
-      <figure>
-        <img id="heroImg" alt="" class="rounded-2xl shadow-xl ring-1 ring-slate-200 w-full h-auto object-cover" />
-      </figure>
-    </section>
+  // Published CSV (Web > Publish to the web)
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=2017023192&single=true&output=csv";
 
-    <section id="tickets" class="mt-12">
-      <h2 class="text-2xl font-bold">Choose your tickets</h2>
-      <p class="text-slate-600 mt-2">Secure payment via Yoco (Pay by Link). Ticket generation runs after you return.</p>
-      <div id="ticketGrid" class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-
-      <aside class="mt-8 max-w-xl rounded-2xl p-6 border border-slate-200">
-        <h3 class="text-lg font-semibold">Your order</h3>
-        <div id="orderList" class="mt-3 text-sm text-slate-700 space-y-2">
-          <p class="text-slate-500">No tickets selected yet.</p>
-        </div>
-        <hr class="my-3" />
-        <div class="flex items-center justify-between text-lg font-semibold">
-          <span>Total</span>
-          <span id="total">R0</span>
-        </div>
-        <button id="goCheckout" class="mt-4 w-full px-5 py-3 rounded-xl bg-sky-600 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed" disabled>
-          Go to Checkout
-        </button>
-      </aside>
-    </section>
-  </main>
-
-  <script>
-    // --- Config / constants ---
-    const STORAGE_KEYS = {
-      CONFIG: 'choir_config_override',
-      CART: 'choir_cart',
-      SELECTED: 'choir_selected_event' // JSON event object saved by the list page
+  // Default/fallback config
+  function loadDefaultConfig(){
+    const def = {
+      orgName: "Laudem Dei Chamber Choir",
+      logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
+      event: {
+        id:"choir-2025-spring-concert",
+        title:"Spring Serenade Concert",
+        subtitle:"An evening of choral gems",
+        dateISO:"2025-10-11T18:30:00+02:00",
+        doorsISO:"2025-10-11T18:00:00+02:00",
+        venue:"St. Stithians Chapel",
+        address:"40 Peter Place, Lyme Park, Sandton, 2191",
+        mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
+        heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert",
+        heroAlt:"Choir on stage"
+      },
+      tickets: [
+        { code:"GEN",  name:"General Admission",    price:20000, desc:"Unreserved seating", limit:10 },
+        { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 },
+        { code:"VIP",  name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 }
+      ]
     };
+    try {
+      const s = localStorage.getItem(STORAGE_KEYS.CONFIG);
+      if (s){
+        const o = JSON.parse(s);
+        Object.assign(def, o);
+        if (o.event) Object.assign(def.event, o.event);
+        if (o.tickets) def.tickets = o.tickets;
+      }
+    } catch(_){}
+    return def;
+  }
+  const CONFIG = loadDefaultConfig();
 
-    // Same CSV used on your home page (expects a header row including "id")
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=2017023192&single=true&output=csv";
+  // --- Helpers ---
+  const ZAR = new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0});
+  const fmt = (cents)=>ZAR.format(cents/100);
+  const qs=(s,r)=> (r||document).querySelector(s);
+  const qsa=(s,r)=> Array.from((r||document).querySelectorAll(s));
+  const toHuman=(iso)=> new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
+  function getParam(name){ return new URL(location.href).searchParams.get(name); }
 
-    // Default/fallback config (used when nothing is passed in)
-    function loadDefaultConfig(){
-      const def = {
-        orgName: "Laudem Dei Chamber Choir",
-        logoUrl: "https://laudemdeitickets.github.io/choir-tickets/logo.jpeg",
-        event: {
-          id:"choir-2025-spring-concert",
-          title:"Spring Serenade Concert",
-          subtitle:"An evening of choral gems",
-          dateISO:"2025-10-11T18:30:00+02:00",
-          doorsISO:"2025-10-11T18:00:00+02:00",
-          venue:"St. Stithians Chapel",
-          address:"40 Peter Place, Lyme Park, Sandton, 2191",
-          mapLink:"https://maps.google.com/?q=St.+Stithians+Chapel+Sandton",
-          heroImg:"https://placehold.co/1200x800/png?text=Choir+Concert",
-          heroAlt:"Choir on stage"
-        },
-        tickets: [
-          { code:"GEN",  name:"General Admission",    price:20000, desc:"Unreserved seating", limit:10 },
-          { code:"STUD", name:"Student / Pensioner", price:12000, desc:"ID required at door", limit:10 },
-          { code:"VIP",  name:"Patron (Front Rows)", price:35000, desc:"Priority seating + program", limit:10 }
-        ]
-      };
-      // allow local overrides if present
-      try {
-        const s = localStorage.getItem(STORAGE_KEYS.CONFIG);
-        if (s){
-          const o = JSON.parse(s);
-          Object.assign(def, o);
-          if (o.event) Object.assign(def.event, o.event);
-          if (o.tickets) def.tickets = o.tickets;
-        }
-      } catch(_){}
-      return def;
+  // CSV parsing (robust + BOM tolerant)
+  function parseCSV(text) {
+    // strip BOM if present
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const rows = [];
+    let cur = [], val = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i], next = text[i+1];
+      if (inQuotes) {
+        if (ch === '"' && next === '"') { val += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { val += ch; }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { cur.push(val.trim()); val = ""; }
+        else if (ch === '\n') { cur.push(val.trim()); rows.push(cur); cur = []; val = ""; }
+        else if (ch === '\r') { /* ignore */ }
+        else { val += ch; }
+      }
+    }
+    if (val.length || cur.length) { cur.push(val.trim()); rows.push(cur); }
+    return rows;
+  }
+
+  // Make headers case/space-insensitive: "Event ID" -> "eventid", "Start ISO" -> "startiso"
+  function normalizeKey(k){ return String(k||"").trim().toLowerCase().replace(/\s+/g,''); }
+
+  function rowsToObjects(rows) {
+    if (!rows.length) return [];
+    const headers = rows[0].map(h => normalizeKey(h));
+    return rows.slice(1).map(r => {
+      const o = {};
+      headers.forEach((h, i) => { o[h] = (r[i] ?? "").trim(); });
+      return o;
+    });
+  }
+
+  // Pick the first non-empty value from possible key variants
+  function pick(o, keys){
+    for (const k of keys){ const nk = normalizeKey(k); if (o[nk]) return o[nk]; }
+    return "";
+  }
+
+  function normalizeEventRow(obj){
+    // Accept common variants
+    const id        = pick(obj, ["id","eventid","slug"]);
+    const title     = pick(obj, ["title","name","eventtitle"]);
+    const subtitle  = pick(obj, ["subtitle","tagline","sub"]);
+    const startISO  = pick(obj, ["startiso","start","dateiso","datetime","date","starttime"]);
+    const doorsISO  = pick(obj, ["doorsiso","doors","doortime","opentime","startiso","start"]);
+    const venue     = pick(obj, ["venue","location","place","hall"]);
+    const address   = pick(obj, ["address","addr","street"]);
+    const mapLink   = pick(obj, ["maplink","map","maps"]);
+    const image     = pick(obj, ["image","heroimg","banner","photo","img"]);
+    const heroAlt   = pick(obj, ["heroalt","alt","title"]);
+
+    return {
+      id:       id || "",
+      title:    title || "Event",
+      subtitle: subtitle || "",
+      dateISO:  startISO || "",
+      doorsISO: doorsISO || startISO || "",
+      venue:    venue || "",
+      address:  address || "",
+      mapLink:  mapLink || (address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : "#"),
+      heroImg:  image || "https://raw.githubusercontent.com/LaudemDeiTickets/choir-tickets/main/backdrop.jpg",
+      heroAlt:  heroAlt || title || "Event image"
+    };
+  }
+
+  // Try to load selected event: sessionStorage first, then ?id=... from CSV, else fallback
+  async function resolveSelectedEvent(){
+    // 1) sessionStorage
+    try {
+      const s = sessionStorage.getItem(STORAGE_KEYS.SELECTED);
+      if (s) {
+        const ev = JSON.parse(s);
+        console.info("[eventinfo] Using event from sessionStorage.");
+        return normalizeEventRow(ev);
+      }
+    } catch(err){
+      console.warn("[eventinfo] sessionStorage parse failed:", err);
     }
 
-    const CONFIG = loadDefaultConfig();
-
-    // --- Helpers ---
-    const ZAR = new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0});
-    const fmt = (cents)=>ZAR.format(cents/100);
-    const qs=(s,r)=>(r||document).querySelector(s);
-    const qsa=(s,r)=>Array.from((r||document).querySelectorAll(s));
-    const toHuman=(iso)=> new Intl.DateTimeFormat(undefined,{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(iso));
-    function getParam(name){ return new URL(location.href).searchParams.get(name); }
-
-    // CSV parsing (robust for quotes/commas)
-    function parseCSV(text) {
-      const rows = [];
-      let cur = [], val = "", inQuotes = false;
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i], next = text[i+1];
-        if (inQuotes) {
-          if (ch === '"' && next === '"') { val += '"'; i++; }
-          else if (ch === '"') { inQuotes = false; }
-          else { val += ch; }
+    // 2) Query string id -> CSV
+    const idParam = (getParam('id') || getParam('event') || getParam('e') || "").trim();
+    if (idParam){
+      try {
+        const res = await fetch(CSV_URL, { cache: "no-cache" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        const rows = parseCSV(text);
+        const objs = rowsToObjects(rows);
+        const match = objs.find(o => String(pick(o,["id","eventid","slug"])).toLowerCase() === idParam.toLowerCase());
+        if (match){
+          console.info("[eventinfo] Matched event id:", idParam);
+          return normalizeEventRow(match);
         } else {
-          if (ch === '"') { inQuotes = true; }
-          else if (ch === ',') { cur.push(val.trim()); val = ""; }
-          else if (ch === '\n') { cur.push(val.trim()); rows.push(cur); cur = []; val = ""; }
-          else if (ch === '\r') { /* ignore */ }
-          else { val += ch; }
+          console.warn("[eventinfo] No row with id =", idParam, "Check your Sheet's ID column.");
         }
+      } catch (e) {
+        console.error("[eventinfo] Failed to load CSV:", e);
       }
-      if (val.length || cur.length) { cur.push(val.trim()); rows.push(cur); }
-      return rows;
-    }
-    function rowsToObjects(rows) {
-      if (!rows.length) return [];
-      const headers = rows[0].map(h => (h || "").trim());
-      return rows.slice(1).map(r => {
-        const o = {};
-        headers.forEach((h, i) => o[h] = r[i] ?? "";
-        return o;
-      });
-    }
-    function normalizeEventRow(r){
-      // Align CSV fields to our CONFIG.event shape
-      return {
-        id:       r.id || "",
-        title:    r.title || r.name || "Event",
-        subtitle: r.subtitle || "",
-        dateISO:  r.startISO || r.start || "",
-        doorsISO: r.doorsISO || r.doors || r.startISO || r.start || "",
-        venue:    r.venue || r.location || "",
-        address:  r.address || r.addr || "",
-        mapLink:  r.mapLink || (r.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address)}` : "#"),
-        heroImg:  r.image || "https://raw.githubusercontent.com/LaudemDeiTickets/choir-tickets/main/backdrop.jpg",
-        heroAlt:  r.heroAlt || r.title || "Event image"
-      };
+    } else {
+      console.warn("[eventinfo] No ?id=… provided in URL. Falling back to default config.");
     }
 
-    // Try to load selected event: sessionStorage first, then ?id=... from CSV, else fallback
-    async function resolveSelectedEvent(){
-      // 1) sessionStorage (set by the listing page when user clicks)
-      try {
-        const s = sessionStorage.getItem(STORAGE_KEYS.SELECTED);
-        if (s) {
-          const ev = JSON.parse(s);
-          // If it looks like an event object, map it onto CONFIG.event
-          return normalizeEventRow(ev);
-        }
-      } catch(_){}
+    // 3) Fallback
+    return CONFIG.event;
+  }
 
-      // 2) Query string id -> fetch CSV and find matching id
-      const id = getParam('id') || getParam('event') || getParam('e');
-      if (id){
-        try {
-          const res = await fetch(CSV_URL, { cache: "no-store" });
-          if (res.ok){
-            const text = await res.text();
-            const rows = parseCSV(text);
-            const objs = rowsToObjects(rows);
-            // Match id (case-insensitive)
-            const found = objs.find(o => String(o.id||"").toLowerCase() === String(id).toLowerCase());
-            if (found) return normalizeEventRow(found);
-          }
-        } catch(_){}
-      }
+  // --- UI Rendering ---
+  const cart = new Map();
 
-      // 3) Fallback to default config's event
-      return CONFIG.event;
-    }
+  function applyEventToUI(ev){
+    CONFIG.event = { ...CONFIG.event, ...ev };
 
-    // --- UI Rendering ---
-    const cart = new Map();
+    // Header/logo
+    qs('#brandLogo').src = CONFIG.logoUrl;
+    qs('#brandLogo').setAttribute('crossorigin','anonymous');
 
-    function applyEventToUI(ev){
-      // Update CONFIG.event so the rest of the code uses the selected event
-      CONFIG.event = { ...CONFIG.event, ...ev };
+    // Event details
+    qs('#eventTitle').textContent = CONFIG.event.title || '';
+    qs('#eventSubtitle').textContent = CONFIG.event.subtitle || '';
+    qs('#venue').textContent = CONFIG.event.venue || '';
+    qs('#venueLink').href = CONFIG.event.mapLink || '#';
+    qs('#dateHuman').textContent = CONFIG.event.dateISO ? toHuman(CONFIG.event.dateISO) : '';
+    qs('#doorsHuman').textContent = CONFIG.event.doorsISO
+      ? new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'}).format(new Date(CONFIG.event.doorsISO))
+      : '';
+    const img = qs('#heroImg');
+    img.src = CONFIG.event.heroImg || '';
+    img.alt = CONFIG.event.heroAlt || 'Event image';
+  }
 
-      // Header/logo
-      qs('#brandLogo').src = CONFIG.logoUrl;
-      qs('#brandLogo').setAttribute('crossorigin','anonymous');
+  function renderTickets(){
+    const grid=qs('#ticketGrid'); grid.innerHTML='';
+    CONFIG.tickets.forEach(t=>{
+      const card=document.createElement('div');
+      card.className='rounded-2xl border border-slate-200 p-6';
+      card.innerHTML=`
+        <div class="flex items-center justify-between">
+          <div class="text-lg font-semibold">${t.name}</div>
+          <div class="text-xl font-bold">${fmt(t.price)}</div>
+        </div>
+        <p class="mt-1 text-sm text-slate-600">${t.desc||''}</p>
+        <div class="mt-3 flex items-center gap-2">
+          <button data-code="${t.code}" class="qtyDown px-3 py-2 rounded-lg border">−</button>
+          <input data-code="${t.code}" type="number" min="0" max="${t.limit||99}" value="0" class="qtyInput w-16 text-center border rounded-lg py-2">
+          <button data-code="${t.code}" class="qtyUp px-3 py-2 rounded-lg border">+</button>
+        </div>`;
+      grid.appendChild(card);
+    });
+    qsa('.qtyUp').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.code,1)));
+    qsa('.qtyDown').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.code,-1)));
+    qsa('.qtyInput').forEach(i=>i.addEventListener('input',()=>setQty(i.dataset.code,parseInt(i.value||'0',10))));
+  }
 
-      // Event details
-      qs('#eventTitle').textContent = CONFIG.event.title || '';
-      qs('#eventSubtitle').textContent = CONFIG.event.subtitle || '';
-      qs('#venue').textContent = CONFIG.event.venue || '';
-      qs('#venueLink').href = CONFIG.event.mapLink || '#';
-      qs('#dateHuman').textContent = CONFIG.event.dateISO ? toHuman(CONFIG.event.dateISO) : '';
-      qs('#doorsHuman').textContent = CONFIG.event.doorsISO
-        ? new Intl.DateTimeFormat(undefined,{hour:'2-digit',minute:'2-digit'}).format(new Date(CONFIG.event.doorsISO))
-        : '';
-      const img = qs('#heroImg');
-      img.src = CONFIG.event.heroImg || '';
-      img.alt = CONFIG.event.heroAlt || 'Event image';
-    }
+  function setQty(code, qty){
+    const t=CONFIG.tickets.find(x=>x.code===code);
+    const clamp=Math.max(0, Math.min(qty||0, t.limit||99));
+    if (clamp===0) cart.delete(code); else cart.set(code, clamp);
+    qsa(`.qtyInput[data-code="${code}"]`).forEach(i=>i.value=clamp);
+    renderOrder();
+  }
+  function changeQty(code,d){ setQty(code,(cart.get(code)||0)+d); }
+  function totals(){ let total=0; cart.forEach((q,code)=>{ const t=CONFIG.tickets.find(x=>x.code===code); total += t.price*q; }); return { total }; }
+  function renderOrder(){
+    const list=qs('#orderList'); list.innerHTML='';
+    if (cart.size===0) list.innerHTML='<p class="text-slate-500">No tickets selected yet.</p>';
+    else cart.forEach((qty,code)=>{ const t=CONFIG.tickets.find(x=>x.code===code); const row=document.createElement('div'); row.className='flex items-center justify-between'; row.innerHTML=`<span class="text-sm">${t.name} × ${qty}</span><span class="text-sm font-medium">${fmt(t.price*qty)}</span>`; list.appendChild(row); });
+    const { total }=totals(); qs('#total').textContent=fmt(total); qs('#goCheckout').disabled = !(total>0);
+  }
 
-    function renderTickets(){
-      const grid=qs('#ticketGrid'); grid.innerHTML='';
-      CONFIG.tickets.forEach(t=>{
-        const card=document.createElement('div');
-        card.className='rounded-2xl border border-slate-200 p-6';
-        card.innerHTML=`
-          <div class="flex items-center justify-between">
-            <div class="text-lg font-semibold">${t.name}</div>
-            <div class="text-xl font-bold">${fmt(t.price)}</div>
-          </div>
-          <p class="mt-1 text-sm text-slate-600">${t.desc||''}</p>
-          <div class="mt-3 flex items-center gap-2">
-            <button data-code="${t.code}" class="qtyDown px-3 py-2 rounded-lg border">−</button>
-            <input data-code="${t.code}" type="number" min="0" max="${t.limit||99}" value="0" class="qtyInput w-16 text-center border rounded-lg py-2">
-            <button data-code="${t.code}" class="qtyUp px-3 py-2 rounded-lg border">+</button>
-          </div>`;
-        grid.appendChild(card);
-      });
-      qsa('.qtyUp').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.code,1)));
-      qsa('.qtyDown').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.code,-1)));
-      qsa('.qtyInput').forEach(i=>i.addEventListener('input',()=>setQty(i.dataset.code,parseInt(i.value||'0',10))));
-    }
+  function goCheckout(){
+    const items = Array.from(cart.entries()).map(([code,qty])=>({code,qty}));
+    const payload = { items, savedAt: Date.now(), eventId: CONFIG.event.id || null };
+    try { localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(payload)); } catch(_){}
+    const qsId = CONFIG.event.id ? `?id=${encodeURIComponent(CONFIG.event.id)}` : '';
+    window.location.href = 'checkout.html' + qsId;
+  }
 
-    function setQty(code, qty){
-      const t=CONFIG.tickets.find(x=>x.code===code);
-      const clamp=Math.max(0, Math.min(qty||0, t.limit||99));
-      if (clamp===0) cart.delete(code); else cart.set(code, clamp);
-      qsa(`.qtyInput[data-code="${code}"]`).forEach(i=>i.value=clamp);
-      renderOrder();
-    }
-    function changeQty(code,d){ setQty(code,(cart.get(code)||0)+d); }
-    function totals(){ let total=0; cart.forEach((q,code)=>{ const t=CONFIG.tickets.find(x=>x.code===code); total += t.price*q; }); return { total }; }
-    function renderOrder(){
-      const list=qs('#orderList'); list.innerHTML='';
-      if (cart.size===0) list.innerHTML='<p class="text-slate-500">No tickets selected yet.</p>';
-      else cart.forEach((qty,code)=>{ const t=CONFIG.tickets.find(x=>x.code===code); const row=document.createElement('div'); row.className='flex items-center justify-between'; row.innerHTML=`<span class="text-sm">${t.name} × ${qty}</span><span class="text-sm font-medium">${fmt(t.price*qty)}</span>`; list.appendChild(row); });
-      const { total }=totals(); qs('#total').textContent=fmt(total); qs('#goCheckout').disabled = !(total>0);
-    }
-
-    function goCheckout(){
-      const items = Array.from(cart.entries()).map(([code,qty])=>({code,qty}));
-      const payload = { items, savedAt: Date.now(), eventId: CONFIG.event.id || null };
-      try { localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(payload)); } catch(_){}
-      // You can append ?id=... so checkout can also show context if needed
-      const qsId = CONFIG.event.id ? `?id=${encodeURIComponent(CONFIG.event.id)}` : '';
-      window.location.href = 'checkout.html' + qsId;
-    }
-
-    async function boot(){
-      // 1) Resolve event
-      const ev = await resolveSelectedEvent();
-      applyEventToUI(ev);
-
-      // 2) Tickets + order UI
-      renderTickets(); renderOrder();
-      qs('#goCheckout').addEventListener('click', goCheckout);
-    }
-
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
-  </script>
-</body>
-</html>
+  async function boot(){
+    const ev = await resolveSelectedEvent();
+    applyEventToUI(ev);
+    renderTickets(); renderOrder();
+    qs('#goCheckout').addEventListener('click', goCheckout);
+  }
+  document.addEventListener('DOMContentLoaded', boot, { once:true });
+</script>
