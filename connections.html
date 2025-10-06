@@ -36,7 +36,7 @@
     <!-- CONFIG -->
     <section class="card">
       <h2 class="text-lg font-semibold">Configure Endpoints</h2>
-      <p class="small text-slate-600 mt-1">CSV links (read-only) per sheet and your Apps Script Web App (read/write).</p>
+      <p class="small text-slate-600 mt-1">CSV links (read-only) and your Apps Script Web App (read/write).</p>
       <div class="grid-auto mt-4">
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Events CSV</span>
@@ -64,7 +64,7 @@
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Apps Script Web App URL</span>
           <input id="appsScriptUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
-                 placeholder="https://script.google.com/macros/s/XXX/exec">
+                 value="https://script.google.com/macros/s/AKfycbzUQheAF2duZLO2o5GvUoSWAREJ953gRq-ydXW4HOK_ccX0V64dWlScd8W_xQmwP4t9XQ/exec">
         </label>
         <label class="block">
           <span class="text-sm font-medium text-slate-700">API Token (optional)</span>
@@ -73,9 +73,9 @@
         </label>
       </div>
 
-      <div class="mt-4 flex gap-3">
+      <div class="mt-4 flex flex-wrap gap-3">
         <button id="runReadsBtn" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold">Run Read Checks</button>
-        <button id="copyBtn" class="px-4 py-2 rounded-xl border border-slate-300">Copy debug</button>
+        <button id="copyDebugBtn" class="px-4 py-2 rounded-xl border border-slate-300">Copy full debug JSON</button>
       </div>
     </section>
 
@@ -90,7 +90,7 @@
     <!-- WRITE TESTS -->
     <section class="card">
       <h2 class="text-lg font-semibold">Write Tests (Apps Script)</h2>
-      <p class="small text-slate-600">These call your Web App to write to the same spreadsheet. Use in test mode where possible.</p>
+      <p class="small text-slate-600">Call your Web App to write to the spreadsheet. Use test IDs where possible.</p>
 
       <div class="grid-auto mt-4">
         <label class="block">
@@ -104,78 +104,112 @@
         <label class="block">
           <span class="text-sm font-medium text-slate-700">Ticket Item(s)</span>
           <input id="testItems" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text" value='[{"code":"TEST","qty":1,"priceCents":0}]'>
-          <span class="small text-slate-500">JSON array; <code>priceCents</code> optional—server can store as-is.</span>
+          <span class="small text-slate-500">JSON array; <code>priceCents</code> optional.</span>
         </label>
       </div>
 
       <div class="mt-4 flex flex-wrap gap-3">
-        <button id="writeTicketBtn" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold">Append Ticket (Tickets)</button>
-        <button id="writeEventBtn"  class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold">Upsert Event (Events)</button>
-        <button id="writePriceBtn"  class="px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold">Upsert Price (Pricing)</button>
-        <button id="writeSettingBtn"class="px-4 py-2 rounded-xl bg-amber-600 text-white font-semibold">Upsert Setting (Settings)</button>
+        <button id="writeTicketBtn" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold">Append Ticket → Tickets</button>
+        <button id="writeEventBtn"  class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold">Upsert Event → Events</button>
+        <button id="writePriceBtn"  class="px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold">Upsert Price → Pricing</button>
+        <button id="writeSettingBtn"class="px-4 py-2 rounded-xl bg-amber-600 text-white font-semibold">Upsert Setting → Settings</button>
       </div>
 
       <div id="writeResults" class="mt-3 space-y-4">
         <p class="text-slate-500 small">Write results will appear here.</p>
       </div>
     </section>
+
+    <!-- DIAGNOSE & FIX -->
+    <section class="card">
+      <h2 class="text-lg font-semibold">Diagnose & Fix</h2>
+      <p class="small text-slate-600">Header checks per sheet and quick fixes. Use “Seed Headers” if a sheet is empty.</p>
+
+      <div id="diagList" class="mt-3 space-y-3">
+        <p class="text-slate-500 small">Run read checks to populate diagnostics.</p>
+      </div>
+
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button id="seedAllBtn" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold">Seed Headers (All)</button>
+        <button id="seedEventsBtn" class="px-4 py-2 rounded-xl border">Seed Events</button>
+        <button id="seedPricingBtn" class="px-4 py-2 rounded-xl border">Seed Pricing</button>
+        <button id="seedSettingsBtn" class="px-4 py-2 rounded-xl border">Seed Settings</button>
+        <button id="seedTicketsBtn" class="px-4 py-2 rounded-xl border">Seed Tickets</button>
+      </div>
+    </section>
+
+    <!-- SCRIPT DOCTOR -->
+    <section class="card">
+      <h2 class="text-lg font-semibold">Script Doctor (paste your Apps Script)</h2>
+      <p class="small text-slate-600">Paste your entire Apps Script here. We’ll analyze it, point out issues, and build a patched version with your constants.</p>
+
+      <div class="grid-auto mt-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Spreadsheet ID (required)</span>
+          <input id="sheetId" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text" placeholder="1AbCdefGhIJkLMNopQRstuVWxyz1234567890">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Strong Secret Token (recommended)</span>
+          <input id="secretToken" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text" placeholder="generate a long random string">
+        </label>
+      </div>
+
+      <div class="grid-auto mt-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Events GID</span>
+          <input id="gidEvents" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="number" value="2017023192">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Pricing GID</span>
+          <input id="gidPricing" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="number" value="58928849">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Settings GID</span>
+          <input id="gidSettings" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="number" value="1700312947">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Tickets GID</span>
+          <input id="gidTickets" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="number" value="1217953546">
+        </label>
+      </div>
+
+      <label class="block mt-4">
+        <span class="text-sm font-medium text-slate-700">Paste Apps Script code</span>
+        <textarea id="scriptInput" class="mt-1 w-full h-64 rounded-lg border border-slate-300 px-3 py-2 mono" placeholder="// Paste your Apps Script here"></textarea>
+      </label>
+
+      <div class="mt-3 flex flex-wrap gap-3">
+        <button id="analyzeScriptBtn" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold">Analyze Script</button>
+        <button id="buildPatchedBtn"  class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold" disabled>Build Patched Script</button>
+        <button id="copyPatchedBtn"   class="px-4 py-2 rounded-xl border" disabled>Copy patched</button>
+        <button id="downloadPatchedBtn" class="px-4 py-2 rounded-xl border" disabled>Download .gs</button>
+      </div>
+
+      <div id="scriptFindings" class="mt-4 space-y-3">
+        <p class="text-slate-500 small">Findings will appear here.</p>
+      </div>
+
+      <label class="block mt-4">
+        <span class="text-sm font-medium text-slate-700">Patched Script (read-only)</span>
+        <textarea id="scriptPatched" class="mt-1 w-full h-72 rounded-lg border border-slate-300 px-3 py-2 mono" readonly placeholder="// Click “Build Patched Script” to generate"></textarea>
+      </label>
+    </section>
+
+    <!-- DEBUG VIEW -->
+    <section class="card">
+      <h2 class="text-lg font-semibold">Debug (live)</h2>
+      <pre id="debugPre" class="mono small overflow-auto max-h-72 bg-slate-50 p-3 rounded-lg">No actions yet.</pre>
+    </section>
   </main>
 
   <script>
-    // ---------- helpers ----------
+    // ===== helpers =====
     const qs = (s, r=document) => r.querySelector(s);
     const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html!=null) n.innerHTML = html; return n; };
-    const toK = b => (b/1024).toFixed(1) + " KB";
-
-    async function timed(fn){
-      const t0 = performance.now();
-      try {
-        const res = await fn();
-        const t1 = performance.now();
-        return { ok:true, ms: (t1 - t0), data: res };
-      } catch (e) {
-        const t1 = performance.now();
-        return { ok:false, ms: (t1 - t0), error: e };
-      }
-    }
-
-    // robust CSV parser
-    function parseCSV(text){
-      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-      const rows = [];
-      let cur = [], val = "", inQuotes = false;
-      for (let i=0;i<text.length;i++){
-        const ch=text[i], next=text[i+1];
-        if (inQuotes){
-          if (ch === '"' && next === '"'){ val += '"'; i++; }
-          else if (ch === '"'){ inQuotes = false; }
-          else { val += ch; }
-        } else {
-          if (ch === '"') { inQuotes = true; }
-          else if (ch === ',') { cur.push(val.trim()); val=""; }
-          else if (ch === '\n') { cur.push(val.trim()); rows.push(cur); cur=[]; val=""; }
-          else if (ch === '\r') { /* ignore */ }
-          else { val += ch; }
-        }
-      }
-      if (val.length || cur.length){ cur.push(val.trim()); rows.push(cur); }
-      return rows;
-    }
-
-    function rowsToObjects(rows){
-      if (!rows.length) return [];
-      const headers = rows[0].map(h => (h||"").trim());
-      return rows.slice(1).map(r => {
-        const o={}; headers.forEach((h,i)=>o[h]=r[i]??""); return o;
-      });
-    }
 
     function statusBadge(kind, text){
-      const span = el('span', `badge ${kind}`);
-      span.textContent = text;
-      return span;
+      const span = el('span', `badge ${kind}`); span.textContent = text; return span;
     }
-
     function addBlock(container, title, outcome, extras={}){
       const block = el('div', 'card');
       const header = el('div', 'flex items-center justify-between gap-3 mb-2');
@@ -185,7 +219,6 @@
       right.appendChild(statusBadge('warn', Math.round(outcome.ms) + ' ms'));
       header.appendChild(left); header.appendChild(right);
       block.appendChild(header);
-
       const table = el('table', 'table small mono');
       const tbody = el('tbody');
       Object.entries(extras).forEach(([k,v])=>{
@@ -199,7 +232,50 @@
       container.appendChild(block);
     }
 
-    // ---------- READ CHECKS ----------
+    function parseCSV(text){
+      if (text && text.charCodeAt && text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      const rows = []; let cur = [], val = "", inQuotes = false;
+      for (let i=0;i<text.length;i++){
+        const ch=text[i], next=text[i+1];
+        if (inQuotes){
+          if (ch === '"' && next === '"'){ val += '"'; i++; }
+          else if (ch === '"'){ inQuotes = false; }
+          else { val += ch; }
+        } else {
+          if (ch === '"') inQuotes = true;
+          else if (ch === ','){ cur.push(val.trim()); val=""; }
+          else if (ch === '\n'){ cur.push(val.trim()); rows.push(cur); cur=[]; val=""; }
+          else if (ch === '\r'){}
+          else { val += ch; }
+        }
+      }
+      if (val.length || cur.length){ cur.push(val.trim()); rows.push(cur); }
+      return rows;
+    }
+    function rowsToObjects(rows){
+      if (!rows.length) return [];
+      const headers = rows[0].map(h => (h||"").trim());
+      return rows.slice(1).map(r => { const o={}; headers.forEach((h,i)=>o[h]=r[i]??""); return o; });
+    }
+    async function timed(fn){
+      const t0 = performance.now();
+      try { const res = await fn(); const t1 = performance.now(); return { ok:true, ms:(t1-t0), data: res }; }
+      catch (e){ const t1 = performance.now(); return { ok:false, ms:(t1-t0), error: String(e) }; }
+    }
+
+    // ===== debug collector =====
+    let diag = {
+      startedAt: new Date().toISOString(),
+      ua: navigator.userAgent,
+      origin: location.origin,
+      reads: [],
+      writes: [],
+      suggestions: [],
+      script: { findings: [] }
+    };
+    function updateDebugView(){ qs('#debugPre').textContent = JSON.stringify(diag, null, 2); }
+
+    // ===== read checks =====
     async function fetchCsv(url){
       const r = await fetch(url, { cache: 'no-store' });
       const text = await r.text();
@@ -208,45 +284,84 @@
       return { http: r.status + ' ' + r.statusText, rows: rows.length, columns: rows[0]?.length||0, headers: rows[0]||[], sample: objs.slice(0,3), sizeChars: text.length };
     }
 
+    const EXPECTED = {
+      events:   ["id","title","subtitle","startISO","endISO","venue","address","image","href","active"],
+      pricing:  ["code","name","price","desc","limit"],
+      settings: ["key","value"],
+      tickets:  ["timestamp","eventId","buyerName","buyerEmail","buyerPhone","itemsJSON","totalCents","notes","source"]
+    };
+    function checkHeaders(sheetName, headers){
+      const expected = EXPECTED[sheetName];
+      if (!expected) return { ok:true, missing:[] };
+      const lower = (headers||[]).map(h => String(h||'').trim().toLowerCase());
+      const missing = expected.filter(h => !lower.includes(h.toLowerCase()));
+      return { ok: missing.length === 0, missing, expected };
+    }
+
     async function runReads(){
       const readsEl = qs('#readResults');
+      const diagEl  = qs('#diagList');
       readsEl.innerHTML = '';
+      diagEl.innerHTML = '';
+      diag.reads = [];
+      diag.suggestions = [];
 
       const urls = [
-        { name: 'Events CSV',   val: qs('#eventsCsvUrl').value.trim() },
-        { name: 'Pricing CSV',  val: qs('#pricingCsvUrl').value.trim() },
-        { name: 'Settings CSV', val: qs('#settingsCsvUrl').value.trim() },
-        { name: 'Tickets CSV',  val: qs('#ticketsCsvUrl').value.trim() },
+        { key:'events',   name: 'Events CSV',   val: qs('#eventsCsvUrl').value.trim() },
+        { key:'pricing',  name: 'Pricing CSV',  val: qs('#pricingCsvUrl').value.trim() },
+        { key:'settings', name: 'Settings CSV', val: qs('#settingsCsvUrl').value.trim() },
+        { key:'tickets',  name: 'Tickets CSV',  val: qs('#ticketsCsvUrl').value.trim() },
       ];
 
       for (const u of urls){
         const res = await timed(() => fetchCsv(u.val));
-        addBlock(readsEl, u.name, res, res.ok ? res.data : { url: u.val, error: String(res.error) });
+        if (res.ok){
+          addBlock(readsEl, u.name, res, { url: u.val, ...res.data });
+          const hdrCheck = checkHeaders(u.key, res.data.headers);
+          diag.reads.push({ name:u.name, url:u.val, ok:true, ms:res.ms, headers:res.data.headers, rows:res.data.rows, missing: hdrCheck.missing });
+
+          const sCard = el('div', 'rounded-xl border p-3');
+          sCard.appendChild(el('div','font-semibold mb-1', u.name + ' — Diagnostics'));
+
+          if (res.data.rows === 0){
+            sCard.appendChild(el('div','small text-amber-800','No rows found. If this sheet is empty, click “Seed Headers”.'));
+            diag.suggestions.push({ sheet:u.key, type:'empty', message:'No rows found. Seed headers.' });
+          } else if (res.data.headers.length === 0){
+            sCard.appendChild(el('div','small text-amber-800','Missing header row. First row must be column names.'));
+            diag.suggestions.push({ sheet:u.key, type:'no_headers', message:'First row must be headers.' });
+          } else if (!hdrCheck.ok){
+            sCard.appendChild(el('div','small text-amber-800','Missing columns: ' + hdrCheck.missing.join(', ')));
+            sCard.appendChild(el('div','small text-slate-600 mt-1','Expected: ' + hdrCheck.expected.join(', ')));
+            diag.suggestions.push({ sheet:u.key, type:'missing_headers', missing: hdrCheck.missing, expected: hdrCheck.expected });
+          } else {
+            sCard.appendChild(el('div','small text-emerald-800','Headers look good.'));
+          }
+          diagEl.appendChild(sCard);
+
+        } else {
+          addBlock(readsEl, u.name, res, { url: u.val, error: String(res.error) });
+          diag.reads.push({ name:u.name, url:u.val, ok:false, ms:res.ms, error:String(res.error) });
+          const sCard = el('div', 'rounded-xl border p-3');
+          sCard.appendChild(el('div','font-semibold mb-1', u.name + ' — Diagnostics'));
+          sCard.appendChild(el('div','small text-amber-800','Fetch failed. Check “Publish to the web”, GID, or network.'));
+          diagEl.appendChild(sCard);
+        }
       }
+      updateDebugView();
     }
 
-    // ---------- WRITE TESTS ----------
-    function getApiInfo(){
-      return {
-        url: qs('#appsScriptUrl').value.trim(),
-        token: qs('#apiToken').value.trim()
-      };
-    }
+    // ===== API (write tests & fixes) =====
+    function getApiInfo(){ return { url: qs('#appsScriptUrl').value.trim(), token: qs('#apiToken').value.trim() }; }
     async function apiPost(payload){
       const { url, token } = getApiInfo();
-      if (!url) throw new Error('Apps Script URL is required for writes.');
+      if (!url) throw new Error('Apps Script URL is required.');
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = 'Bearer ' + token;
-      const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-      const txt = await r.text(); let json; try { json = JSON.parse(txt); } catch { json = { ok: r.ok, raw: txt }; }
+      const r = await fetch(url, { method:'POST', headers, body: JSON.stringify(payload) });
+      const txt = await r.text(); let json; try { json = JSON.parse(txt); } catch { json = { ok:r.ok, raw:txt }; }
       return json;
     }
-
-    function parseBuyer(str){
-      // "Name,email,phone"
-      const [name, email, phone] = String(str||'').split(',').map(s=>s.trim());
-      return { name: name||'', email: email||'', phone: phone||'' };
-    }
+    function parseBuyer(str){ const [name, email, phone] = String(str||'').split(',').map(s=>s.trim()); return { name: name||'', email: email||'', phone: phone||'' }; }
 
     async function testAppendTicket(){
       const writeEl = qs('#writeResults');
@@ -254,74 +369,234 @@
       const buyer   = parseBuyer(qs('#testBuyer').value);
       let items; try { items = JSON.parse(qs('#testItems').value); } catch { items = [{code:'TEST',qty:1,priceCents:0}]; }
       const totalCents = items.reduce((s,i)=> s + (Number(i.priceCents)||0) * (Number(i.qty)||0), 0);
-
-      const payload = {
-        action: 'appendTicket',
-        eventId,
-        buyer,
-        items,
-        totalCents,
-        notes: 'diagnostic write from connections.html ' + new Date().toISOString()
-      };
-
+      const payload = { action:'appendTicket', eventId, buyer, items, totalCents, notes:'connections.html diagnostic' };
       const res = await timed(() => apiPost(payload));
       addBlock(writeEl, 'Append Ticket → Tickets', res, res.ok ? res.data : { error: String(res.error), payload });
+      diag.writes.push({ name:'appendTicket', ok:res.ok, ms:res.ms, payload, data:res.ok?res.data:{ error:String(res.error) } });
+      updateDebugView();
     }
-
     async function testUpsertEvent(){
       const writeEl = qs('#writeResults');
-      const now = new Date();
-      const iso = new Date(now.getTime() + 7*24*3600*1000).toISOString(); // +7 days
-      const payload = {
-        action: 'upsertEvent',
-        row: {
-          id: 'DIAG-EVENT',
-          title: 'Diagnostics Event',
-          subtitle: 'Created by connections.html',
-          startISO: iso,
-          endISO: new Date(now.getTime() + 7*24*3600*1000 + 2*3600*1000).toISOString(),
-          venue: 'Diagnostics Hall',
-          address: '123 Test Rd, Debug City',
-          image: '',
-          href: 'iwelcome.html',
-          active: 'TRUE'
-        }
-      };
+      const now = Date.now();
+      const start = new Date(now + 7*24*3600*1000).toISOString();
+      const end   = new Date(now + 7*24*3600*1000 + 2*3600*1000).toISOString();
+      const payload = { action:'upsertEvent', row:{
+        id:'DIAG-EVENT', title:'Diagnostics Event', subtitle:'Created by connections.html',
+        startISO:start, endISO:end, venue:'Diagnostics Hall',
+        address:'123 Test Rd, Debug City', image:'', href:'iwelcome.html', active:'TRUE'
+      }};
       const res = await timed(() => apiPost(payload));
       addBlock(writeEl, 'Upsert Event → Events', res, res.ok ? res.data : { error: String(res.error), payload });
+      diag.writes.push({ name:'upsertEvent', ok:res.ok, ms:res.ms, payload, data:res.ok?res.data:{ error:String(res.error) } });
+      updateDebugView();
     }
-
     async function testUpsertPrice(){
       const writeEl = qs('#writeResults');
-      const payload = {
-        action: 'upsertPricing',
-        rows: [{ code:'TEST', name:'Diagnostics Ticket', priceCents:0, desc:'For testing', limit: 999 }]
-      };
+      const payload = { action:'upsertPricing', rows:[{ code:'TEST', name:'Diagnostics Ticket', priceCents:0, desc:'For testing', limit:999 }] };
       const res = await timed(() => apiPost(payload));
       addBlock(writeEl, 'Upsert Price → Pricing', res, res.ok ? res.data : { error: String(res.error), payload });
+      diag.writes.push({ name:'upsertPricing', ok:res.ok, ms:res.ms, payload, data:res.ok?res.data:{ error:String(res.error) } });
+      updateDebugView();
     }
-
     async function testUpsertSetting(){
       const writeEl = qs('#writeResults');
-      const payload = { action: 'upsertSetting', key:'lastDiagnostics', value:new Date().toISOString() };
+      const payload = { action:'upsertSetting', key:'lastDiagnostics', value:new Date().toISOString() };
       const res = await timed(() => apiPost(payload));
       addBlock(writeEl, 'Upsert Setting → Settings', res, res.ok ? res.data : { error: String(res.error), payload });
+      diag.writes.push({ name:'upsertSetting', ok:res.ok, ms:res.ms, payload, data:res.ok?res.data:{ error:String(res.error) } });
+      updateDebugView();
     }
 
-    // ---------- Wire buttons ----------
+    // Seed header helpers (use your API behavior to create header rows if empty)
+    async function seedEvents(){ return apiPost({ action:'upsertEvent', row:{ id:'HEADER-SEED', title:'Header Seed', subtitle:'', startISO:new Date().toISOString(), endISO:'', venue:'', address:'', image:'', href:'', active:'FALSE' } }); }
+    async function seedPricing(){ return apiPost({ action:'upsertPricing', rows:[{ code:'HEADER-SEED', name:'', priceCents:0, desc:'', limit:'' }] }); }
+    async function seedSettings(){ return apiPost({ action:'upsertSetting', key:'headerSeed', value:'1' }); }
+    async function seedTickets(){ return apiPost({ action:'appendTicket', eventId:'HEADER-SEED', buyer:{}, items:[], totalCents:0, notes:'seed' }); }
+    async function runSeedAll(){
+      const writeEl = qs('#writeResults');
+      const res = await timed(async () => {
+        const a = await seedEvents(), b = await seedPricing(), c = await seedSettings(), d = await seedTickets();
+        return { events:a, pricing:b, settings:c, tickets:d };
+      });
+      addBlock(writeEl, 'Seed Headers (All)', res, res.ok ? res.data : { error: String(res.error) });
+      diag.writes.push({ name:'seedAll', ok:res.ok, ms:res.ms, data:res.ok?res.data:{ error:String(res.error) } });
+      updateDebugView();
+    }
+    async function runSeedOne(kind){
+      const writeEl = qs('#writeResults');
+      const fn = kind==='events' ? seedEvents : kind==='pricing' ? seedPricing : kind==='settings' ? seedSettings : seedTickets;
+      const res = await timed(() => fn());
+      addBlock(writeEl, `Seed Headers → ${kind}`, res, res.ok ? res.data : { error: String(res.error) });
+      diag.writes.push({ name:`seed_${kind}`, ok:res.ok, ms:res.ms, data:res.ok?res.data:{ error:String(res.error) } });
+      updateDebugView();
+    }
+
+    // ===== Script Doctor =====
+    function analyzeScript(text){
+      const findings = [];
+      const has = (re) => re.test(text);
+      const match = (re) => (text.match(re)||[])[0] || '';
+
+      if (!has(/function\s+doPost\s*\(/)) findings.push({ level:'err', msg:'Missing doPost(e) handler.' });
+      if (!has(/function\s+doGet\s*\(/))  findings.push({ level:'warn', msg:'Missing doGet(e) health endpoint (recommended).' });
+      if (!has(/appendTicket\s*_/)) findings.push({ level:'err', msg:'Missing appendTicket_ action implementation.' });
+      if (!has(/upsertEvent\s*_/))  findings.push({ level:'warn', msg:'Missing upsertEvent_ action (recommended).' });
+      if (!has(/upsertPricing\s*_/))findings.push({ level:'warn', msg:'Missing upsertPricing_ action (recommended).' });
+      if (!has(/upsertSetting\s*_/))findings.push({ level:'warn', msg:'Missing upsertSetting_ action (recommended).' });
+
+      const idRaw = match(/const\s+SPREADSHEET_ID\s*=\s*['"]([^'"]+)['"]/);
+      if (!idRaw) findings.push({ level:'err', msg:'SPREADSHEET_ID not found.' });
+      else if (/PUT-YOUR-SPREADSHEET-ID-HERE|CHANGE|TODO/i.test(idRaw)) findings.push({ level:'err', msg:'SPREADSHEET_ID still a placeholder.' });
+
+      const tokRaw = match(/const\s+SECRET_TOKEN\s*=\s*['"]([^'"]*)['"]/);
+      if (!tokRaw) findings.push({ level:'warn', msg:'SECRET_TOKEN not found (public write access!).' });
+      else if (tokRaw.length < 20) findings.push({ level:'warn', msg:'SECRET_TOKEN looks weak/short. Use a long random string.' });
+
+      const gids = {
+        events:   /SHEET_GIDS\s*=\s*{[^}]*events:\s*([0-9]+)/.exec(text)?.[1],
+        pricing:  /SHEET_GIDS\s*=\s*{[^}]*pricing:\s*([0-9]+)/.exec(text)?.[1],
+        settings: /SHEET_GIDS\s*=\s*{[^}]*settings:\s*([0-9]+)/.exec(text)?.[1],
+        tickets:  /SHEET_GIDS\s*=\s*{[^}]*tickets:\s*([0-9]+)/.exec(text)?.[1],
+      };
+      Object.entries(gids).forEach(([k,v])=>{
+        if (!v) findings.push({ level:'warn', msg:`Missing GID for ${k} in SHEET_GIDS.` });
+      });
+
+      if (!has(/Access-Control-Allow-Origin/)) findings.push({ level:'warn', msg:'CORS headers not present. Consider adding Access-Control-Allow-Origin, etc.' });
+
+      return { findings, gids, hasPost: has(/function\s+doPost\s*\(/), hasGet: has(/function\s+doGet\s*\(/) };
+    }
+
+    function renderFindings(list){
+      const wrap = qs('#scriptFindings'); wrap.innerHTML = '';
+      if (!list || list.length === 0){ wrap.appendChild(el('div','small text-emerald-700','No obvious issues found.')); return; }
+      list.forEach(f => {
+        const row = el('div','flex items-start gap-2');
+        const badge = statusBadge(f.level==='err' ? 'err' : f.level==='warn' ? 'warn' : 'ok', f.level.toUpperCase());
+        const text = el('div','small', f.msg);
+        row.appendChild(badge); row.appendChild(text);
+        wrap.appendChild(row);
+      });
+    }
+
+    function buildConstants(){
+      const id  = qs('#sheetId').value.trim();
+      const tok = qs('#secretToken').value.trim();
+      const gidEvents = Number(qs('#gidEvents').value);
+      const gidPricing = Number(qs('#gidPricing').value);
+      const gidSettings = Number(qs('#gidSettings').value);
+      const gidTickets = Number(qs('#gidTickets').value);
+      const tokenVal = tok || 'change-me-to-a-long-random-string';
+      return `
+const SPREADSHEET_ID = '${id}'; // REQUIRED
+const SECRET_TOKEN   = '${tokenVal}'; // Change to a strong random string
+
+const SHEET_GIDS = {
+  events:   ${gidEvents},
+  pricing:  ${gidPricing},
+  settings: ${gidSettings},
+  tickets:  ${gidTickets}
+};
+`.trim();
+    }
+
+    function injectConstants(original){
+      const constantsRe = /const\s+SPREADSHEET_ID[\s\S]*?SHEET_GIDS[\s\S]*?};/m;
+      const newBlock = buildConstants();
+      if (constantsRe.test(original)){
+        return original.replace(constantsRe, newBlock);
+      }
+      return newBlock + '\n\n' + original;
+    }
+
+    function ensureActions(code){
+      const stubs = [];
+      if (!/appendTicket_\s*\(/.test(code)){
+        stubs.push(`function appendTicket_(body){ const sh=getSheetByGid(SHEET_GIDS.tickets); if (sh.getLastRow()===0){ sh.appendRow(['timestamp','eventId','buyerName','buyerEmail','buyerPhone','itemsJSON','totalCents','notes','source']); } const b=body.buyer||{}; sh.appendRow([new Date().toISOString(), body.eventId||'', b.name||'', b.email||'', b.phone||'', JSON.stringify(body.items||[]), Number(body.totalCents)||0, body.notes||'', 'webapp']); return { ok:true, wrote:1 }; }`);
+      }
+      if (!/upsertPricing_\s*\(/.test(code)){
+        stubs.push(`function upsertPricing_(body){ const sh=getSheetByGid(SHEET_GIDS.pricing); if (sh.getLastRow()===0){ sh.appendRow(['code','name','price','desc','limit']); } const rows=Array.isArray(body.rows)?body.rows:[]; rows.forEach(r=>sh.appendRow([r.code||'', r.name||'', r.priceCents||r.price||0, r.desc||'', r.limit||''])); return { ok:true, upserts:rows.length }; }`);
+      }
+      if (!/upsertEvent_\s*\(/.test(code)){
+        stubs.push(`function upsertEvent_(body){ const sh=getSheetByGid(SHEET_GIDS.events); if (sh.getLastRow()===0){ sh.appendRow(['id','title','subtitle','startISO','endISO','venue','address','image','href','active']); } const r=body.row||{}; sh.appendRow([r.id||'', r.title||'', r.subtitle||'', r.startISO||'', r.endISO||'', r.venue||'', r.address||'', r.image||'', r.href||'', r.active||'']); return { ok:true }; }`);
+      }
+      if (!/upsertSetting_\s*\(/.test(code)){
+        stubs.push(`function upsertSetting_(body){ const sh=getSheetByGid(SHEET_GIDS.settings); if (sh.getLastRow()===0){ sh.appendRow(['key','value']); } sh.appendRow([body.key||'', body.value||'']); return { ok:true }; }`);
+      }
+      if (stubs.length){ code += '\n\n// --- Added stubs by Script Doctor ---\n' + stubs.join('\n\n'); }
+      return code;
+    }
+
+    function buildPatchedScriptFromInput(){
+      const src = qs('#scriptInput').value || '';
+      let out = injectConstants(src);
+      out = ensureActions(out);
+      return out;
+    }
+
+    // ===== wire up UI =====
     qs('#runReadsBtn').addEventListener('click', runReads);
-    qs('#copyBtn').addEventListener('click', async ()=>{
-      try {
-        await navigator.clipboard.writeText(JSON.stringify({ ts:new Date().toISOString(), ua:navigator.userAgent }, null, 2));
-        qs('#copyBtn').textContent = 'Copied!';
-        setTimeout(()=>qs('#copyBtn').textContent='Copy debug', 1200);
-      } catch { alert('Copy failed.'); }
+    qs('#copyDebugBtn').addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(JSON.stringify(diag, null, 2)); qs('#copyDebugBtn').textContent='Copied!'; setTimeout(()=>qs('#copyDebugBtn').textContent='Copy full debug JSON',1200);} catch { alert('Copy failed.'); }
     });
 
     qs('#writeTicketBtn').addEventListener('click', testAppendTicket);
     qs('#writeEventBtn').addEventListener('click', testUpsertEvent);
     qs('#writePriceBtn').addEventListener('click', testUpsertPrice);
     qs('#writeSettingBtn').addEventListener('click', testUpsertSetting);
+
+    qs('#seedAllBtn').addEventListener('click', runSeedAll);
+    qs('#seedEventsBtn').addEventListener('click', ()=>runSeedOne('events'));
+    qs('#seedPricingBtn').addEventListener('click', ()=>runSeedOne('pricing'));
+    qs('#seedSettingsBtn').addEventListener('click', ()=>runSeedOne('settings'));
+    qs('#seedTicketsBtn').addEventListener('click', ()=>runSeedOne('tickets'));
+
+    // Script Doctor buttons
+    qs('#analyzeScriptBtn').addEventListener('click', ()=>{
+      const src = qs('#scriptInput').value || '';
+      if (!src.trim()){ alert('Paste your Apps Script first.'); return; }
+      const res = analyzeScript(src);
+      diag.script.findings = res.findings;
+      const wrap = qs('#scriptFindings'); wrap.innerHTML = '';
+      const renderFindings = (list)=>{
+        if (!list || list.length === 0){ wrap.appendChild(el('div','small text-emerald-700','No obvious issues found.')); return; }
+        list.forEach(f => {
+          const row = el('div','flex items-start gap-2');
+          const badge = statusBadge(f.level==='err' ? 'err' : f.level==='warn' ? 'warn' : 'ok', f.level.toUpperCase());
+          const text = el('div','small', f.msg);
+          row.appendChild(badge); row.appendChild(text);
+          wrap.appendChild(row);
+        });
+      };
+      renderFindings(res.findings);
+      qs('#buildPatchedBtn').disabled = false;
+      updateDebugView();
+    });
+
+    qs('#buildPatchedBtn').addEventListener('click', ()=>{
+      const id = qs('#sheetId').value.trim();
+      if (!id){ alert('Spreadsheet ID is required to build the patched script.'); return; }
+      const patched = buildPatchedScriptFromInput();
+      qs('#scriptPatched').value = patched;
+      qs('#copyPatchedBtn').disabled = false;
+      qs('#downloadPatchedBtn').disabled = false;
+    });
+
+    qs('#copyPatchedBtn').addEventListener('click', async ()=>{
+      try { await navigator.clipboard.writeText(qs('#scriptPatched').value); qs('#copyPatchedBtn').textContent='Copied!'; setTimeout(()=>qs('#copyPatchedBtn').textContent='Copy patched',1200); }
+      catch { alert('Copy failed.'); }
+    });
+
+    qs('#downloadPatchedBtn').addEventListener('click', ()=>{
+      const blob = new Blob([qs('#scriptPatched').value], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'choir_tickets_api_patched.gs';
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    // Initialize debug view
+    updateDebugView();
   </script>
 </body>
 </html>
