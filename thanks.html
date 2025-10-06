@@ -17,7 +17,7 @@
 <body class="bg-white text-slate-800">
   <div class="max-w-xl mx-auto px-4 py-10">
     <header class="flex items-center gap-3">
-      <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=11"
+      <img src="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=18"
            alt="Logo" class="w-12 h-12 rounded-xl ring-1 ring-slate-200 object-contain bg-white"
            crossorigin="anonymous" referrerpolicy="no-referrer">
       <div>
@@ -44,101 +44,167 @@
         Tip: Bookmark or save the ticket link so you can access it later.
       </p>
 
-      <div id="errBox" class="hidden mt-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 p-3 text-sm"></div>
+      <div id="msg" class="hidden mt-3 rounded-xl border p-3 text-sm"></div>
     </section>
   </div>
 
   <script>
   (function(){
-    // === CONFIG: Apps Script Web App (/exec) for logging sales to Google Sheets ===
+    // ====== SETTINGS ======
+    // Your deployed Apps Script Web App (from "Deploy > New deployment > Web app")
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzUQheAF2duZLO2o5GvUoSWAREJ953gRq-ydXW4HOK_ccX0V64dWlScd8W_xQmwP4t9XQ/exec";
+    // If your Apps Script requires a Bearer token, set it here; otherwise leave as "".
+    const API_TOKEN = ""; // e.g. "change-me-to-a-long-random-string"
 
-    // Simple, no-preflight POST to Apps Script
-    async function recordSaleToSheets(payload) {
-      try {
-        const r = await fetch(APPS_SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" }, // IMPORTANT: 'simple' header to avoid CORS preflight
-          body: JSON.stringify({ action: "record_sale", data: payload })
-        });
-        const text = await r.text();
-        try { return JSON.parse(text); } catch { return { ok: r.ok, raw: text }; }
-      } catch (e) {
-        console.error("[sheets] record_sale failed:", e);
-        return { ok:false, error: String(e) };
-      }
-    }
+    // Storage keys used by eventinfo/checkout
+    const STORAGE_KEYS = {
+      CART:   'choir_cart',            // { items:[{code,qty}], eventId, savedAt }
+      CONFIG: 'choir_config_override', // may contain tickets (with prices)
+      LOG:    'choir_cart_logged'      // idempotency guard (by orderId/token)
+    };
 
-    // === Existing flow ===
+    // ====== DOM ======
     const params  = new URLSearchParams(location.search);
-    // Expect: ?paid=1&order=...&email=...&v=...&token=...
-    const token   = params.get('token') || params.get('t');
-    const version = params.get('v') || '11'; // cache-buster
     const openBtn = document.getElementById('openTickets');
-    const errBox  = document.getElementById('errBox');
+    const msgBox  = document.getElementById('msg');
     const note    = document.getElementById('note');
 
-    // Build claim URL to ticket page, preserving cache-buster and token
+    // Build claim URL to ticket page, preserving cache-buster and token if present
+    const token   = params.get('token') || params.get('t') || '';
+    const version = params.get('v') || '18';
     let claimUrl = 'ticket.html';
     const qp = new URLSearchParams();
-    qp.set('paid', '1');
-    qp.set('v', version);
+    if (params.get('paid')) qp.set('paid', params.get('paid'));
+    if (version) qp.set('v', version);
     if (token) qp.set('token', token);
     claimUrl += `?${qp.toString()}`;
     openBtn.href = claimUrl;
 
-    // Decode JWT payload (unsigned parse; verification happens server-side in your API)
-    function decodeJwtPayload(t) {
-      try {
-        const parts = t.split('.');
-        if (parts.length < 2) return null;
-        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const json = decodeURIComponent(atob(b64).split('').map(c => {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(json);
-      } catch {
-        return null;
-      }
+    // ====== Helpers ======
+    const ZAR = new Intl.NumberFormat('en-ZA',{style:'currency',currency:'ZAR',maximumFractionDigits:0});
+    const fmt = (cents)=>ZAR.format((cents||0)/100);
+    function showMsg(kind, text){
+      msgBox.classList.remove('hidden');
+      msgBox.className = 'mt-3 rounded-xl border p-3 text-sm ' +
+        (kind==='ok' ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                     : 'border-amber-200 bg-amber-50 text-amber-900');
+      msgBox.textContent = text;
+    }
+    function parseJSON(storageKey){
+      try { const s = localStorage.getItem(storageKey); return s ? JSON.parse(s) : null; } catch { return null; }
+    }
+    function configTicketsMap(){
+      const cfg = parseJSON(STORAGE_KEYS.CONFIG) || {};
+      const arr = Array.isArray(cfg.tickets) ? cfg.tickets : [];
+      const map = new Map();
+      arr.forEach(t => map.set(String(t.code), { priceCents: Number(t.price)||0, name: t.name||t.code }));
+      return map;
     }
 
-    async function maybeRecordSale() {
-      if (!token) return; // Nothing to log without payload
+    // Build payload to send to Apps Script
+    function buildAppendPayload(){
+      const cart = parseJSON(STORAGE_KEYS.CART);
+      if (!cart || !Array.isArray(cart.items) || cart.items.length===0) return null;
 
-      const payload = decodeJwtPayload(token);
-      if (!payload) {
-        console.warn("[thanks] Could not decode token payload for Sheets logging.");
+      // Rehydrate prices if we can (optional)
+      const priceMap = configTicketsMap();
+      const items = cart.items.map(it => {
+        const row = priceMap.get(String(it.code)) || { priceCents: 0, name: it.code };
+        return { code: it.code, qty: Number(it.qty)||0, priceCents: row.priceCents, name: row.name };
+      });
+
+      // Compute total
+      let totalCents = 0;
+      items.forEach(i => { totalCents += (Number(i.priceCents)||0) * (Number(i.qty)||0); });
+
+      // Optional buyer info if you saved it at checkout (adapt key if different)
+      const buyer = parseJSON('choir_buyer') || {}; // {name,email,phone} if you stored it
+
+      // Attempt an idempotency key: use token/orderId if available, else timestamp
+      const orderId = params.get('order') || (token ? ('tok_' + token.slice(0,12)) : ('ts_' + Date.now()));
+
+      return {
+        action: 'appendTicket',
+        eventId: cart.eventId || params.get('id') || '',
+        buyer,
+        items,
+        totalCents,
+        notes: 'web checkout',
+        orderId // not used by the default script, but handy to store in your Tickets sheet if you extend it
+      };
+    }
+
+    async function appendToSheet(payload){
+      const headers = { 'Content-Type': 'application/json' };
+      if (API_TOKEN) headers['Authorization'] = 'Bearer ' + API_TOKEN;
+
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const text = await res.text();
+      let json; try { json = JSON.parse(text); } catch { json = { ok: res.ok, raw: text }; }
+      return json;
+    }
+
+    function alreadyLogged(key){
+      try { const m = parseJSON(STORAGE_KEYS.LOG) || {}; return !!m[key]; } catch { return false; }
+    }
+    function markLogged(key){
+      try {
+        const m = parseJSON(STORAGE_KEYS.LOG) || {};
+        m[key] = { at: Date.now() };
+        localStorage.setItem(STORAGE_KEYS.LOG, JSON.stringify(m));
+      } catch {}
+    }
+
+    async function run(){
+      // Only try to log on success
+      const paid = params.get('paid') === '1' || params.get('status') === 'success';
+      if (!paid){
+        showMsg('warn', 'No payment flag detected. Tickets are available via the button above.');
         return;
       }
 
-      // The token your checkout emitted already matches what the Apps Script expects:
-      // { orderId, mode, amountCents, buyer:{...}, event:{...}, items:[...] }
-      const sale = {
-        orderId:     payload.orderId || params.get('order') || '',
-        mode:        (payload.mode || '').toLowerCase() === 'live' ? 'live' : 'test',
-        amountCents: Number(payload.amountCents) || 0,
-        checkoutId:  payload.checkoutId || '',   // optional; include if you added it when creating the token
-        paymentRef:  payload.paymentRef  || '',   // optional
-        buyer:       payload.buyer || {},
-        event:       payload.event || {},
-        items:       Array.isArray(payload.items) ? payload.items : []
-        // tickets:  [...] // optional; omit to let Apps Script auto-generate per qty
-      };
+      // Build payload from local data
+      const payload = buildAppendPayload();
+      if (!payload){
+        showMsg('warn', 'We could not find your cart in this browser. You can still open your tickets; if anything is missing we will reconcile from the payment record.');
+        return;
+      }
 
-      const res = await recordSaleToSheets(sale);
-      console.log("[sheets] record_sale result:", res);
-      // No UI change required; this is silent logging.
+      // Idempotency guard (avoid duplicates on refresh)
+      const idKey = payload.orderId || (payload.eventId + ':' + JSON.stringify(payload.items));
+      if (alreadyLogged(idKey)){
+        showMsg('ok', 'Your purchase has already been recorded. If you need help, open your tickets and show them at the door.');
+        return;
+      }
+
+      // Send to Apps Script
+      try{
+        const result = await appendToSheet(payload);
+        if (result && result.ok){
+          markLogged(idKey);
+          const total = fmt(payload.totalCents);
+          showMsg('ok', `Your order was recorded successfully (${total}). You can open your tickets now.`);
+        } else {
+          console.warn('[thanks] Append failed:', result);
+          showMsg('warn', 'Payment succeeded, but we could not record the order automatically. Your tickets should still open; we will reconcile shortly.');
+        }
+      } catch (e){
+        console.error('[thanks] Error sending to sheet:', e);
+        showMsg('warn', 'Payment succeeded, but recording to the sheet failed due to a network error.');
+      }
     }
 
-    // Warn if no token (user can still open ticket page)
+    // UX notes if no token (doesn't block anything)
     if (!token) {
-      errBox.textContent = "We couldn't detect a ticket token in the link. You can still open tickets, but if they don't load, please return via the email/SMS link after payment.";
-      errBox.classList.remove('hidden');
       note.textContent = "Tip: Use the link from your confirmation page or email to ensure tickets load automatically.";
-    } else {
-      // Try to record the sale once when we have a token
-      maybeRecordSale();
     }
+
+    // Kick off
+    run();
   })();
   </script>
 </body>
