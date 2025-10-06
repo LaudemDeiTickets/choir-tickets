@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Connections Check — Laudem Dei Chamber Choir</title>
+  <title>Connections Check — Choir Tickets</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -33,40 +33,90 @@
   </header>
 
   <main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
+    <!-- CONFIG -->
     <section class="card">
-      <h2 class="text-lg font-semibold">Targets</h2>
-      <p class="small text-slate-600 mt-1">These defaults match your site. You can tweak and re-run.</p>
+      <h2 class="text-lg font-semibold">Configure Endpoints</h2>
+      <p class="small text-slate-600 mt-1">CSV links (read-only) per sheet and your Apps Script Web App (read/write).</p>
       <div class="grid-auto mt-4">
         <label class="block">
-          <span class="text-sm font-medium text-slate-700">GitHub Pages asset (image/css/js on your site)</span>
-          <input id="ghPagesUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
-                 value="https://laudemdeitickets.github.io/choir-tickets/logo.jpeg?v=18">
-        </label>
-        <label class="block">
-          <span class="text-sm font-medium text-slate-700">GitHub Raw asset (raw.githubusercontent.com)</span>
-          <input id="ghRawUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
-                 value="https://raw.githubusercontent.com/LaudemDeiTickets/choir-tickets/main/backdrop.jpg">
-        </label>
-        <label class="block">
-          <span class="text-sm font-medium text-slate-700">Google Sheets (Published CSV)</span>
-          <input id="sheetsCsvUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
+          <span class="text-sm font-medium text-slate-700">Events CSV</span>
+          <input id="eventsCsvUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
                  value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=2017023192&single=true&output=csv">
         </label>
         <label class="block">
-          <span class="text-sm font-medium text-slate-700">Extra URL to test (optional)</span>
-          <input id="extraUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url" placeholder="https://…">
+          <span class="text-sm font-medium text-slate-700">Pricing CSV</span>
+          <input id="pricingCsvUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
+                 value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=58928849&single=true&output=csv">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Settings CSV</span>
+          <input id="settingsCsvUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
+                 value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=1700312947&single=true&output=csv">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Tickets CSV</span>
+          <input id="ticketsCsvUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
+                 value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQZ2u4btRm1YXAF05T_52qklU_TSVDajyCmoIbIcWUm_GANZkJ1mM5aHuDg2B959kTrUKTUBQyHhQnv/pub?gid=1217953546&single=true&output=csv">
         </label>
       </div>
+
+      <div class="grid-auto mt-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Apps Script Web App URL</span>
+          <input id="appsScriptUrl" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="url"
+                 placeholder="https://script.google.com/macros/s/XXX/exec">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">API Token (optional)</span>
+          <input id="apiToken" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text"
+                 placeholder="Bearer token if enabled in Apps Script">
+        </label>
+      </div>
+
       <div class="mt-4 flex gap-3">
-        <button id="runBtn" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold">Run Checks</button>
+        <button id="runReadsBtn" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold">Run Read Checks</button>
         <button id="copyBtn" class="px-4 py-2 rounded-xl border border-slate-300">Copy debug</button>
       </div>
     </section>
 
+    <!-- READ RESULTS -->
     <section class="card">
-      <h2 class="text-lg font-semibold">Results</h2>
-      <div id="results" class="mt-3 space-y-4">
-        <p class="text-slate-500 small">Click “Run Checks”.</p>
+      <h2 class="text-lg font-semibold">Read Results</h2>
+      <div id="readResults" class="mt-3 space-y-4">
+        <p class="text-slate-500 small">Click “Run Read Checks”.</p>
+      </div>
+    </section>
+
+    <!-- WRITE TESTS -->
+    <section class="card">
+      <h2 class="text-lg font-semibold">Write Tests (Apps Script)</h2>
+      <p class="small text-slate-600">These call your Web App to write to the same spreadsheet. Use in test mode where possible.</p>
+
+      <div class="grid-auto mt-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Diagnostic Event ID</span>
+          <input id="testEventId" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text" value="DIAG-EVENT">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Buyer (name,email,phone)</span>
+          <input id="testBuyer" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text" value="Diagnostics Bot,bot@example.com,+27 10 000 0000">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Ticket Item(s)</span>
+          <input id="testItems" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" type="text" value='[{"code":"TEST","qty":1,"priceCents":0}]'>
+          <span class="small text-slate-500">JSON array; <code>priceCents</code> optional—server can store as-is.</span>
+        </label>
+      </div>
+
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button id="writeTicketBtn" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold">Append Ticket (Tickets)</button>
+        <button id="writeEventBtn"  class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold">Upsert Event (Events)</button>
+        <button id="writePriceBtn"  class="px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold">Upsert Price (Pricing)</button>
+        <button id="writeSettingBtn"class="px-4 py-2 rounded-xl bg-amber-600 text-white font-semibold">Upsert Setting (Settings)</button>
+      </div>
+
+      <div id="writeResults" class="mt-3 space-y-4">
+        <p class="text-slate-500 small">Write results will appear here.</p>
       </div>
     </section>
   </main>
@@ -126,70 +176,7 @@
       return span;
     }
 
-    function renderKV(title, kv){
-      const wrap = el('div', 'card');
-      wrap.appendChild(el('div', 'flex items-center justify-between gap-3 mb-2',
-        `<div class="font-semibold">${title}</div>`));
-      const table = el('table', 'table small mono');
-      const thead = el('thead'); thead.innerHTML = `<tr><th>Key</th><th>Value</th></tr>`;
-      const tbody = el('tbody');
-      Object.entries(kv).forEach(([k,v])=>{
-        const tr = el('tr');
-        tr.appendChild(el('td', '', k));
-        tr.appendChild(el('td', 'clip', v));
-        tbody.appendChild(tr);
-      });
-      table.appendChild(thead); table.appendChild(tbody); wrap.appendChild(table);
-      return wrap;
-    }
-
-    // ---------- checks ----------
-    async function checkFetch(url){
-      const r = await fetch(url, { cache: 'no-store' });
-      const ct = r.headers.get('content-type') || '';
-      const ab = await r.arrayBuffer(); // works if CORS allows; otherwise it will still work for CORS-enabled
-      return {
-        ok: r.ok,
-        status: r.status + " " + r.statusText,
-        type: ct,
-        size: ab.byteLength,
-      };
-    }
-
-    async function checkImage(url){
-      // Just try to load the image element; more tolerant than fetch for some CORS setups
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.referrerPolicy = "no-referrer";
-      return await new Promise((resolve) => {
-        const t0 = performance.now();
-        img.onload = () => resolve({ ok:true, status:"loaded", width: img.naturalWidth, height: img.naturalHeight, ms: performance.now()-t0 });
-        img.onerror = (e) => resolve({ ok:false, status:"error loading image", ms: performance.now()-t0, error: String(e?.message||e) });
-        img.src = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
-      });
-    }
-
-    async function checkCsv(url){
-      const r = await fetch(url, { cache: 'no-store' });
-      const text = await r.text();
-      const rows = parseCSV(text);
-      const objs = rowsToObjects(rows);
-      return {
-        ok: r.ok,
-        status: r.status + " " + r.statusText,
-        rows: rows.length,
-        columns: rows[0]?.length || 0,
-        headers: rows[0] || [],
-        sample: objs.slice(0,3),
-        rawSize: text.length
-      };
-    }
-
-    // ---------- UI wiring ----------
-    const resultsEl = qs('#results');
-    let lastDebug = {};
-
-    function addResultBlock(title, outcome, extras={}){
+    function addBlock(container, title, outcome, extras={}){
       const block = el('div', 'card');
       const header = el('div', 'flex items-center justify-between gap-3 mb-2');
       const left = el('div', 'font-semibold', title);
@@ -209,90 +196,132 @@
       });
       table.appendChild(tbody);
       block.appendChild(table);
-      resultsEl.appendChild(block);
+      container.appendChild(block);
     }
 
-    async function run(){
-      resultsEl.innerHTML = '';
-      lastDebug = { startedAt: new Date().toISOString(), userAgent: navigator.userAgent, origin: location.origin, checks: [] };
+    // ---------- READ CHECKS ----------
+    async function fetchCsv(url){
+      const r = await fetch(url, { cache: 'no-store' });
+      const text = await r.text();
+      const rows = parseCSV(text);
+      const objs = rowsToObjects(rows);
+      return { http: r.status + ' ' + r.statusText, rows: rows.length, columns: rows[0]?.length||0, headers: rows[0]||[], sample: objs.slice(0,3), sizeChars: text.length };
+    }
 
-      const ghPagesUrl = qs('#ghPagesUrl').value.trim();
-      const ghRawUrl   = qs('#ghRawUrl').value.trim();
-      const csvUrl     = qs('#sheetsCsvUrl').value.trim();
-      const extraUrl   = qs('#extraUrl').value.trim();
+    async function runReads(){
+      const readsEl = qs('#readResults');
+      readsEl.innerHTML = '';
 
-      // GitHub Pages asset (use <img> load for a true rendering check)
-      const ghPagesRes = await timed(() => checkImage(ghPagesUrl));
-      addResultBlock('GitHub Pages asset', ghPagesRes, ghPagesRes.ok
-        ? { url: ghPagesUrl, size: `${ghPagesRes.width}×${ghPagesRes.height}`, timeMs: Math.round(ghPagesRes.ms) }
-        : { url: ghPagesUrl, error: ghPagesRes.status, timeMs: Math.round(ghPagesRes.ms) });
-      lastDebug.checks.push({ name:'github_pages_image', url: ghPagesUrl, ...ghPagesRes });
+      const urls = [
+        { name: 'Events CSV',   val: qs('#eventsCsvUrl').value.trim() },
+        { name: 'Pricing CSV',  val: qs('#pricingCsvUrl').value.trim() },
+        { name: 'Settings CSV', val: qs('#settingsCsvUrl').value.trim() },
+        { name: 'Tickets CSV',  val: qs('#ticketsCsvUrl').value.trim() },
+      ];
 
-      // GitHub Raw asset (try fetch for headers/size)
-      const rawRes = await timed(() => checkFetch(ghRawUrl));
-      addResultBlock('GitHub Raw asset', rawRes, {
-        url: ghRawUrl,
-        http: rawRes.data.status,
-        contentType: rawRes.data.type,
-        size: toK(rawRes.data.size)
-      });
-      lastDebug.checks.push({ name:'github_raw_fetch', url: ghRawUrl, ...rawRes });
-
-      // Google Sheets CSV
-      const csvRes = await timed(() => checkCsv(csvUrl));
-      addResultBlock('Google Sheets — Published CSV', csvRes, csvRes.ok ? {
-        url: csvUrl,
-        http: csvRes.data.status,
-        rows: csvRes.data.rows,
-        columns: csvRes.data.columns,
-        headers: csvRes.data.headers,
-        sample: csvRes.data.sample,
-        sizeChars: csvRes.data.rawSize
-      } : { url: csvUrl, error: String(csvRes.error) });
-      lastDebug.checks.push({ name:'sheets_csv', url: csvUrl, ...csvRes });
-
-      // Extra URL (optional)
-      if (extraUrl){
-        const extraRes = await timed(() => checkFetch(extraUrl));
-        addResultBlock('Extra URL', extraRes, extraRes.ok ? {
-          url: extraUrl,
-          http: extraRes.data.status,
-          contentType: extraRes.data.type,
-          size: toK(extraRes.data.size)
-        } : { url: extraUrl, error: String(extraRes.error) });
-        lastDebug.checks.push({ name:'extra_fetch', url: extraUrl, ...extraRes });
-      }
-
-      // Tips if issues found
-      const anyErr = lastDebug.checks.some(c => !c.ok);
-      if (anyErr){
-        const tips = el('div', 'card');
-        tips.innerHTML = `
-          <div class="font-semibold mb-1">Troubleshooting tips</div>
-          <ul class="list-disc pl-5 small text-slate-700">
-            <li><strong>Google Sheets:</strong> ensure the sheet/tab is <em>Published to the web</em> and the URL uses <code>output=csv</code> for the correct <code>gid</code>.</li>
-            <li><strong>CORS:</strong> tests use <code>fetch</code>. If a resource blocks CORS you may see “Failed to fetch”. Try opening the URL directly in a new tab to verify reachability.</li>
-            <li><strong>Cache:</strong> hard refresh this page (Ctrl/Cmd+Shift+R).</li>
-            <li><strong>Permissions:</strong> Google Drive links that aren’t “Anyone with the link” will fail.</li>
-          </ul>`;
-        resultsEl.appendChild(tips);
+      for (const u of urls){
+        const res = await timed(() => fetchCsv(u.val));
+        addBlock(readsEl, u.name, res, res.ok ? res.data : { url: u.val, error: String(res.error) });
       }
     }
 
-    qs('#runBtn').addEventListener('click', run);
+    // ---------- WRITE TESTS ----------
+    function getApiInfo(){
+      return {
+        url: qs('#appsScriptUrl').value.trim(),
+        token: qs('#apiToken').value.trim()
+      };
+    }
+    async function apiPost(payload){
+      const { url, token } = getApiInfo();
+      if (!url) throw new Error('Apps Script URL is required for writes.');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const txt = await r.text(); let json; try { json = JSON.parse(txt); } catch { json = { ok: r.ok, raw: txt }; }
+      return json;
+    }
+
+    function parseBuyer(str){
+      // "Name,email,phone"
+      const [name, email, phone] = String(str||'').split(',').map(s=>s.trim());
+      return { name: name||'', email: email||'', phone: phone||'' };
+    }
+
+    async function testAppendTicket(){
+      const writeEl = qs('#writeResults');
+      const eventId = qs('#testEventId').value.trim() || 'DIAG-EVENT';
+      const buyer   = parseBuyer(qs('#testBuyer').value);
+      let items; try { items = JSON.parse(qs('#testItems').value); } catch { items = [{code:'TEST',qty:1,priceCents:0}]; }
+      const totalCents = items.reduce((s,i)=> s + (Number(i.priceCents)||0) * (Number(i.qty)||0), 0);
+
+      const payload = {
+        action: 'appendTicket',
+        eventId,
+        buyer,
+        items,
+        totalCents,
+        notes: 'diagnostic write from connections.html ' + new Date().toISOString()
+      };
+
+      const res = await timed(() => apiPost(payload));
+      addBlock(writeEl, 'Append Ticket → Tickets', res, res.ok ? res.data : { error: String(res.error), payload });
+    }
+
+    async function testUpsertEvent(){
+      const writeEl = qs('#writeResults');
+      const now = new Date();
+      const iso = new Date(now.getTime() + 7*24*3600*1000).toISOString(); // +7 days
+      const payload = {
+        action: 'upsertEvent',
+        row: {
+          id: 'DIAG-EVENT',
+          title: 'Diagnostics Event',
+          subtitle: 'Created by connections.html',
+          startISO: iso,
+          endISO: new Date(now.getTime() + 7*24*3600*1000 + 2*3600*1000).toISOString(),
+          venue: 'Diagnostics Hall',
+          address: '123 Test Rd, Debug City',
+          image: '',
+          href: 'iwelcome.html',
+          active: 'TRUE'
+        }
+      };
+      const res = await timed(() => apiPost(payload));
+      addBlock(writeEl, 'Upsert Event → Events', res, res.ok ? res.data : { error: String(res.error), payload });
+    }
+
+    async function testUpsertPrice(){
+      const writeEl = qs('#writeResults');
+      const payload = {
+        action: 'upsertPricing',
+        rows: [{ code:'TEST', name:'Diagnostics Ticket', priceCents:0, desc:'For testing', limit: 999 }]
+      };
+      const res = await timed(() => apiPost(payload));
+      addBlock(writeEl, 'Upsert Price → Pricing', res, res.ok ? res.data : { error: String(res.error), payload });
+    }
+
+    async function testUpsertSetting(){
+      const writeEl = qs('#writeResults');
+      const payload = { action: 'upsertSetting', key:'lastDiagnostics', value:new Date().toISOString() };
+      const res = await timed(() => apiPost(payload));
+      addBlock(writeEl, 'Upsert Setting → Settings', res, res.ok ? res.data : { error: String(res.error), payload });
+    }
+
+    // ---------- Wire buttons ----------
+    qs('#runReadsBtn').addEventListener('click', runReads);
     qs('#copyBtn').addEventListener('click', async ()=>{
       try {
-        await navigator.clipboard.writeText(JSON.stringify(lastDebug, null, 2));
+        await navigator.clipboard.writeText(JSON.stringify({ ts:new Date().toISOString(), ua:navigator.userAgent }, null, 2));
         qs('#copyBtn').textContent = 'Copied!';
         setTimeout(()=>qs('#copyBtn').textContent='Copy debug', 1200);
-      } catch {
-        alert('Copy failed. Select and copy manually from console.');
-        console.log(lastDebug);
-      }
+      } catch { alert('Copy failed.'); }
     });
 
-    // auto-run on load
-    document.addEventListener('DOMContentLoaded', run, { once:true });
+    qs('#writeTicketBtn').addEventListener('click', testAppendTicket);
+    qs('#writeEventBtn').addEventListener('click', testUpsertEvent);
+    qs('#writePriceBtn').addEventListener('click', testUpsertPrice);
+    qs('#writeSettingBtn').addEventListener('click', testUpsertSetting);
   </script>
 </body>
 </html>
